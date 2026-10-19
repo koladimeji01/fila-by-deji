@@ -1,59 +1,37 @@
-# FÌLÀ by Deji — Editorial storefront
+# FÌLÀ by Deji
 
-A redesigned, responsive fashion storefront for FÌLÀ by Deji, built with **HTML, CSS and vanilla JavaScript**. The visual language combines Yoruba cultural identity, warm gold, forest green, contemporary typography and spacious product photography.
+A polished, responsive, accessible frontend implementation based on the supplied Figma designs. Built with semantic **HTML5, CSS3, vanilla JavaScript**, and no build dependencies. The FÌLÀ logo follows the original Figma typography and black/yellow/charcoal signature stripes.
 
 ## Pages
 
-- `index.html` — editorial homepage, signature caps, brand story and collection categories
-- `collection.html` — searchable collection with category filters and sorting (three products shown in Figma)
-- `details.html?product=premium` — Royal Agbada Cap details, sizes, quantity, add to bag
-- `details.html?product=ceremonial` — Ceremonial Fila
-- `details.html?product=classic` — Traditional Aso-oke Fila
-- `cart.html` — bag review, quantities and subtotal
-- `about.html` — brand story
-- `contact.html` — contact enquiry preparation (no emails or messages are sent)
+- `index.html` — hero and featured collection
+- `collection.html` — product grid, live search, filters
+- `details.html?product=premium|classic|ceremonial` — product details, size and quantity selection
+- `cart.html` — persistent shopping bag
+- `checkout.html` — honest checkout preview, *not* a working payment form
+- `about.html` — heritage story
+- `contact.html` — non-sending enquiry composer
+
+## Product images
+
+Real cap imagery comes from the original Figma design, using assets under `/assets`: `hero.png`, `ceremonial.png`, `classic.png`, `premium.png`. The original Figma design is at: https://www.figma.com/design/px6gx3buqM8Uj2pqgGByXB/fila-by-deji?node-id=0-1
+
+If the assets are not present yet, run `download-assets.ps1` on Windows or `download-assets.sh` on Unix. The scripts download **the original Figma asset URLs** and check whether each file is a valid PNG. These signed links may expire; in that case export the images anew from the original Figma document. The UI includes elegant fallback panels to avoid broken-image icons while assets are pending; never deploy for a client without the original photos.
 
 ## Run locally
 
-Use VS Code Live Server, or from the project root run:
+Run a static server from the project root:
 
-```powershell
+```sh
 python -m http.server 5500
 ```
 
-Open <http://127.0.0.1:5500/index.html>.
+Then visit http://localhost:5500. No npm installation needed.
 
-## Images
+## Scope and security
 
-The original Figma file is [FÌLÀ by Deji](https://www.figma.com/design/px6gx3buqM8Uj2pqgGByXB/fila-by-deji). Save the original photographs at:
+This is **a frontend preview**: there is no server-side authentication, inventory system, completed orders, or live checkout/payment processing. The cart is browser-local and demonstrates interactions only. Prices in the Figma file are ₦10,000 for the three featured products. Product inventory and sizing should be confirmed before launching. Contact enquiries are only copied to the clipboard, not transmitted. Do not accept real payments or store personal customer information until a secure backend and verified payment integration are introduced.
 
-- `assets/hero.png`
-- `assets/ceremonial.png`
-- `assets/classic.png`
-- `assets/premium.png`
+## Accessibility
 
-The website uses these original images, not external replacements. Until the image files are added, the website displays attractive branded placeholders instead of broken images. The existing `download-assets.ps1` script contains **temporary Figma URLs obtained on 19 October 2026**, which may expire around 26 October 2026. Once downloaded, **commit the actual image files to the repository** so hosting services can serve them permanently.
-
-## Cart and checkout
-
-The cart uses `localStorage` key `fila_by_deji_cart_v1` and retains size variations (32, 35, 39, 41). The prototype prices are ₦10,000 per cap as shown in Figma. The catalog is not an inventory system; stock levels, shipping, and prices need business confirmation.
-
-**This is a frontend showcase, not a production shop.** No live order submission, checkout, payment processing, accounts or customer service backend has been configured. The checkout action is disabled and the contact form only prepares a local, copyable message. Connect a secure backend/payment provider and verified business contact details before accepting real orders.
-
-## Structure
-
-```
-index.html
-collection.html
-details.html
-cart.html
-about.html
-contact.html
-css/style.css
-js/app.js
-assets/favicon.svg
-download-assets.ps1
-README.md
-```
-
-All navigation is relative to the project root, ready for GitHub Pages, Netlify or Vercel static hosting.
+Semantic landmarks, descriptive alt text, focus indicators, reduced-motion support, keyboard navigation, responsive grids, and accessible field labels.
