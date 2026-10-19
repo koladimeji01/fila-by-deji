@@ -1,0 +1,106 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#303030">
+  <meta name="description" content="FÌLÀ by Deji — authentic Yoruba caps, meticulously handcrafted to honour our heritage.">
+  <title>FÌLÀ by Deji | Crafted for Kings</title>
+  <link rel="icon" href="assets/favicon.svg" type="image/svg+xml">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:ital,wght@0,400;0,500;0,600;0,700;1,500;1,600;1,700;1,800&family=Jacques+Francois&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="css/style.css">
+  <script defer src="js/app.js"></script>
+</head>
+<body data-page="home">
+  <a class="skip-link" href="#main">Skip to content</a>
+
+  <div class="hero" id="top">
+    <img class="hero-photo" src="assets/hero.png" alt="FÌLÀ by Deji brand presentation" fetchpriority="high">
+    <div class="hero-shade" aria-hidden="true"></div>
+
+    <header class="site-header">
+      <a class="brand-logo" href="#top" aria-label="FÌLÀ by Deji — home">
+        <span class="brand-logo__name">FÌLÀ</span>
+        <span class="brand-logo__by">BY DEJI</span>
+        <span class="brand-logo__line brand-logo__line--black" aria-hidden="true"></span>
+        <span class="brand-logo__line brand-logo__line--gold" aria-hidden="true"></span>
+        <span class="brand-logo__line brand-logo__line--grey" aria-hidden="true"></span>
+      </a>
+
+      <nav class="site-nav" id="site-nav" aria-label="Main navigation">
+        <a href="#top" data-story-link>About Us</a>
+        <a href="collection.html">Collection</a>
+        <a href="#top" data-contact-link>Contact</a>
+      </nav>
+
+      <div class="header-actions">
+        <button class="account-link" id="account-button" type="button" aria-label="Account — feature coming in the next stage">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><circle cx="12" cy="8" r="3"/><path d="M5 20v-2a7 7 0 0 1 14 0v2"/></svg>
+          <span>Account</span>
+        </button>
+        <button class="cart-button" id="cart-button" type="button" aria-label="Open shopping cart" aria-controls="cart-drawer" aria-expanded="false">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><rect x="4" y="7" width="16" height="14" rx="2"/><path d="M9 10V6a3 3 0 0 1 6 0v4"/></svg>
+          <span class="cart-count" id="cart-count" aria-live="polite">0</span>
+        </button>
+        <button class="menu-button" id="menu-button" type="button" aria-label="Toggle navigation" aria-controls="site-nav" aria-expanded="false">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M4 7h16M4 12h16M4 17h16"/></svg>
+        </button>
+      </div>
+    </header>
+
+    <section class="hero-message" aria-label="Welcome to FÌLÀ by Deji">
+      <h1>FÌLÀ</h1>
+      <div class="hero-message__by">BY DEJI</div>
+      <p class="hero-tagline">Crafted for kings</p>
+      <p class="hero-description">Authentic Yoruba caps that embody tradition, craftsmanship, and royal heritage.<br class="desktop-break"> Each piece is meticulously handcrafted to honor the legacy of our ancestors.</p>
+      <div class="hero-buttons">
+        <a class="btn btn--gold" href="#collection">Explore collections</a>
+        <a class="btn btn--light" href="#top" data-story-link>Our story</a>
+      </div>
+    </section>
+  </div>
+
+  <main id="main">
+    <section class="collection-section" id="collection" aria-labelledby="collection-title">
+      <div class="section-intro">
+        <h2 id="collection-title">Our Collection</h2>
+        <span class="title-underline" aria-hidden="true"></span>
+        <p>Discover our exquisite range of authentic Yoruba caps, each piece telling a story of<br class="desktop-break"> heritage, craftsmanship, and cultural pride.</p>
+      </div>
+
+      <div class="products-grid" id="products-grid" aria-label="FÌLÀ caps"></div>
+      <a class="btn btn--gold view-full" href="collection.html" id="view-collection">View Full Collection</a>
+    </section>
+
+  </main>
+
+  <div class="overlay" id="overlay" hidden></div>
+  <aside class="cart-drawer" id="cart-drawer" aria-labelledby="cart-title" role="dialog" aria-modal="true" aria-hidden="true" tabindex="-1" inert>
+    <div class="drawer-header">
+      <div><span class="eyebrow">FÌLÀ BY DEJI</span><h2 id="cart-title">Your cart</h2></div>
+      <button type="button" class="icon-button" id="close-cart" aria-label="Close cart">&times;</button>
+    </div>
+    <div class="cart-items" id="cart-items"></div>
+    <div class="drawer-footer">
+      <div class="cart-total"><span>Subtotal</span><strong id="cart-total">₦0</strong></div>
+      <p class="cart-note">Secure checkout will be connected in a later stage.</p>
+      <button class="btn btn--gold btn--wide" id="continue-shopping" type="button">Continue shopping</button>
+    </div>
+  </aside>
+
+  <div class="product-dialog" id="product-dialog" role="dialog" aria-modal="true" aria-labelledby="dialog-title" aria-hidden="true" tabindex="-1">
+    <button type="button" class="icon-button modal-close" id="close-product" aria-label="Close product details">&times;</button>
+    <div class="product-dialog__image"><img id="dialog-image" src="" alt=""></div>
+    <div class="product-dialog__details">
+      <span class="product-category" id="dialog-category"></span>
+      <h2 id="dialog-title"></h2>
+      <p id="dialog-description"></p>
+      <strong class="product-dialog__price" id="dialog-price"></strong>
+      <button type="button" class="btn btn--gold btn--wide" id="add-to-cart">Choose size &amp; view details</button>
+    </div>
+  </div>
+  <div class="toast" id="toast" role="status" aria-live="polite"></div>
+</body>
+</html>
