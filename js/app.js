@@ -3,9 +3,9 @@
 // Values and product photographs originate in the FÌLÀ by Deji Figma design.
 // This is a frontend prototype, not a verified inventory or payment system.
 const PRODUCTS = Object.freeze([
-  {id:'ceremonial',name:'Ceremonial Fila',category:'Ceremonial',description:'Perfect for special occasions and cultural ceremonies.',price:10000,image:'assets/ceremonial.png'},
-  {id:'classic',name:'Traditional Aso-oke Fila',category:'Classic',description:'Handwoven with traditional Nigerian Aso-oke fabric in vibrant colours.',price:10000,image:'assets/classic.png'},
-  {id:'premium',name:'Royal Agbada Cap',category:'Premium',description:'Matching cap for royal Agbada with intricate embroidery.',price:10000,image:'assets/premium.png'}
+  {id:'ceremonial',name:'Ceremonial Fila',category:'Ceremonial',description:'Perfect for special occasions and cultural ceremonies.',price:10000,image:'assets/ceremonial.jpg'},
+  {id:'classic',name:'Traditional Aso-oke Fila',category:'Classic',description:'Handwoven with traditional Nigerian Aso-oke fabric in vibrant colours.',price:10000,image:'assets/classic.jpg'},
+  {id:'premium',name:'Royal Agbada Cap',category:'Premium',description:'Matching cap for royal Agbada with intricate embroidery.',price:10000,image:'assets/premium.jpg'}
 ]);
 const SIZES=['32','35','39','41'];
 const CART_KEY='fila_by_deji_cart_v1';

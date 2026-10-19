@@ -14,9 +14,9 @@ A polished, responsive, accessible frontend implementation based on the supplied
 
 ## Product images
 
-Real cap imagery comes from the original Figma design, using assets under `/assets`: `hero.png`, `ceremonial.png`, `classic.png`, `premium.png`. The original Figma design is at: https://www.figma.com/design/px6gx3buqM8Uj2pqgGByXB/fila-by-deji?node-id=0-1
+Real cap imagery comes from the original Figma design, using assets under `/assets`: `hero.jpg`, `ceremonial.jpg`, `classic.jpg`, `premium.jpg`. The original Figma design is at: https://www.figma.com/design/px6gx3buqM8Uj2pqgGByXB/fila-by-deji?node-id=0-1
 
-If the assets are not present yet, run `download-assets.ps1` on Windows or `download-assets.sh` on Unix. The scripts download **the original Figma asset URLs** and check whether each file is a valid PNG. These signed links may expire; in that case export the images anew from the original Figma document. The UI includes elegant fallback panels to avoid broken-image icons while assets are pending; never deploy for a client without the original photos.
+If the assets are not present yet, run `download-assets.ps1` on Windows or `download-assets.sh` on Unix. The scripts download **the original Figma asset URLs** and check whether each file is a valid JPEG. These signed links may expire; in that case export the images anew from the original Figma document. The UI includes elegant fallback panels to avoid broken-image icons while assets are pending; never deploy for a client without the original photos.
 
 ## Run locally
 
