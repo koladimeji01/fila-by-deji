@@ -1,85 +1,59 @@
-# FÌLÀ by Deji — Website (Stage 2)
+# FÌLÀ by Deji — Editorial storefront
 
-A responsive **HTML, CSS, and vanilla JavaScript** implementation of these original Figma screens:
+A redesigned, responsive fashion storefront for FÌLÀ by Deji, built with **HTML, CSS and vanilla JavaScript**. The visual language combines Yoruba cultural identity, warm gold, forest green, contemporary typography and spacious product photography.
 
-- **Homepage:** Landing page `1:1118` → `index.html`
-- **Collection:** Collection page `1:1306` → `collection.html`
-- **Product Details:** Details page `1:1558` → `details.html?product=premium`
+## Pages
 
-Figma file: https://www.figma.com/design/px6gx3buqM8Uj2pqgGByXB/fila-by-deji
+- `index.html` — editorial homepage, signature caps, brand story and collection categories
+- `collection.html` — searchable collection with category filters and sorting (three products shown in Figma)
+- `details.html?product=premium` — Royal Agbada Cap details, sizes, quantity, add to bag
+- `details.html?product=ceremonial` — Ceremonial Fila
+- `details.html?product=classic` — Traditional Aso-oke Fila
+- `cart.html` — bag review, quantities and subtotal
+- `about.html` — brand story
+- `contact.html` — contact enquiry preparation (no emails or messages are sent)
 
-## 1. Get the exact Figma imagery
+## Run locally
 
-The package includes code, styles, and a local-asset download script, but **not the original Figma photos or social SVG icons**. Those files must be downloaded once. Open the *fila-by-deji* folder in VS Code, open PowerShell in that folder, and run:
-
-```powershell
-.\download-assets.ps1
-```
-
-The script saves these seven Figma assets into `assets/`:
-
-- `hero.png`
-- `ceremonial.png`
-- `classic.png`
-- `premium.png`
-- `facebook.svg`
-- `instagram.svg`
-- `twitter.svg`
-
-Temporary Figma asset links were retrieved on **October 19, 2026** and typically expire **within seven days**. If a URL has expired, the images must be exported again from Figma and saved locally with these exact filenames. **Do not upload to a live host until these assets are present.**
-
-## 2. Run in VS Code
-
-Install the VS Code **Live Server** extension, right-click `index.html`, choose **Open with Live Server**. The site usually opens at `http://127.0.0.1:5500/`.
-
-Or from a terminal in the *fila-by-deji* folder:
+Use VS Code Live Server, or from the project root run:
 
 ```powershell
 python -m http.server 5500
 ```
 
-Visit these pages:
+Open <http://127.0.0.1:5500/index.html>.
 
-- `http://127.0.0.1:5500/index.html` — Homepage
-- `http://127.0.0.1:5500/collection.html` — Collection
-- `http://127.0.0.1:5500/details.html?product=premium` — Royal Agbada Cap details
-- `http://127.0.0.1:5500/details.html?product=classic` — Traditional Aso-oke Fila details
-- `http://127.0.0.1:5500/details.html?product=ceremonial` — Ceremonial Fila details
+## Images
 
-## 3. What works in Stage 2
+The original Figma file is [FÌLÀ by Deji](https://www.figma.com/design/px6gx3buqM8Uj2pqgGByXB/fila-by-deji). Save the original photographs at:
 
-- Homepage's **View Full Collection** and nav **Collection** link open the real collection page
-- Desktop: 4-column, 6-row collection grid based on the original Figma (24 sample cards, intentionally reusing the three designs shown)
-- Responsive grid: 2 columns on most phones, 1 on the narrowest screens
-- Live collection search and category filter with clear and empty states
-- Product cards open a full **Details** page
-- Size variations **32 / 35 / 39 / 41**, with a required selection before adding
-- Size-aware cart: adding the same cap in two sizes produces separate cart rows
-- Quantity updates and subtotals in **naira (₦)**
-- Cart saved in the browser using localStorage, shared between the pages
-- Accessible back links, keyboard focus, and Escape-to-close cart
-- Footer and social icon designs are from Figma; social icons are decorative until verified URLs are supplied
+- `assets/hero.png`
+- `assets/ceremonial.png`
+- `assets/classic.png`
+- `assets/premium.png`
 
-### Important limits
+The website uses these original images, not external replacements. Until the image files are added, the website displays attractive branded placeholders instead of broken images. The existing `download-assets.ps1` script contains **temporary Figma URLs obtained on 19 October 2026**, which may expire around 26 October 2026. Once downloaded, **commit the actual image files to the repository** so hosting services can serve them permanently.
 
-**This is a frontend prototype, not an operational ecommerce store.** Prices and the sample three designs are taken from the Figma mockup. Stock levels have not been verified. The cart is local to the browser; payments, checkout, accounts, the About/Contact pages, and order processing are not yet integrated. The 24 Collection cards intentionally repeat the three designed items; this is how the Figma screen is arranged, not 24 different products.
+## Cart and checkout
 
-Until actual contact/social links are supplied, the footer links that aren't implemented show an informative notice, rather than sending customers to made-up addresses.
+The cart uses `localStorage` key `fila_by_deji_cart_v1` and retains size variations (32, 35, 39, 41). The prototype prices are ₦10,000 per cap as shown in Figma. The catalog is not an inventory system; stock levels, shipping, and prices need business confirmation.
 
-## 4. Files
+**This is a frontend showcase, not a production shop.** No live order submission, checkout, payment processing, accounts or customer service backend has been configured. The checkout action is disabled and the contact form only prepares a local, copyable message. Connect a secure backend/payment provider and verified business contact details before accepting real orders.
+
+## Structure
 
 ```
-fila-by-deji/
-├── index.html
-├── collection.html
-├── details.html
-├── css/style.css
-├── js/app.js
-├── assets/favicon.svg
-├── download-assets.ps1
-└── README.md
+index.html
+collection.html
+details.html
+cart.html
+about.html
+contact.html
+css/style.css
+js/app.js
+assets/favicon.svg
+download-assets.ps1
+README.md
 ```
 
-## 5. Next stage
-
-Build the Figma **Cart page** and **Checkout page** and connect navigation. Later we can add a secure backend and a supported payment provider after agreeing on requirements. Do not accept real orders or card payments until backend validations and security measures are in place.
+All navigation is relative to the project root, ready for GitHub Pages, Netlify or Vercel static hosting.
