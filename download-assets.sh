@@ -17,3 +17,12 @@ for name in ('hero.png','ceremonial.jpg','classic.jpg','premium.jpg'):
         raise SystemExit(f'{name} is not a valid PNG/JPEG. Export that layer directly from the original Figma file.')
 print('All four original Figma images downloaded successfully.')
 PY
+# Exact original Figma logo group export, rather than a replacement design.
+curl -fL --retry 2 --connect-timeout 12 --max-time 50 'https://www.figma.com/api/mcp/asset/e5bcff6e-92f1-4fd8-83fb-c70a9b74142e.png' -o assets/fila-logo.png
+python3 - <<'PY'
+from pathlib import Path
+data=Path('assets/fila-logo.png').read_bytes()
+if len(data)<1000 or not data.startswith(b'\x89PNG\r\n\x1a\n'):
+    raise SystemExit('Original logo PNG was not downloaded')
+print('Original Figma logo ready')
+PY

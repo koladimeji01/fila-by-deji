@@ -21,3 +21,9 @@ foreach ($item in $images.GetEnumerator()) {
   }
 }
 Write-Host 'The four original Figma images are ready.' -ForegroundColor Green
+# The exact 109 x 116 original Figma logo group export.
+$logoPath = Join-Path $assets 'fila-logo.png'
+Invoke-WebRequest -Uri 'https://www.figma.com/api/mcp/asset/e5bcff6e-92f1-4fd8-83fb-c70a9b74142e.png' -OutFile $logoPath
+$logo = [IO.File]::ReadAllBytes($logoPath)
+if ($logo.Length -lt 1000 -or $logo[0] -ne 137 -or $logo[1] -ne 80 -or $logo[2] -ne 78 -or $logo[3] -ne 71) { throw 'Original Figma logo PNG download failed.' }
+Write-Host 'Original logo downloaded.' -ForegroundColor Green
