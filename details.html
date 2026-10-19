@@ -1,0 +1,56 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#333333">
+  <meta name="description" content="Choose the perfect FÌLÀ by Deji cap and size.">
+  <title>Product Details | FÌLÀ by Deji</title>
+  <link rel="icon" type="image/svg+xml" href="assets/favicon.svg">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:ital,wght@0,400;0,500;0,600;0,700;1,600;1,700;1,800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="css/style.css">
+  <script defer src="js/app.js"></script>
+</head>
+<body class="shop-page" data-page="details">
+  <a class="skip-link" href="#main">Skip to product details</a>
+  <header class="shop-topbar"><a href="index.html" class="shop-brand">Fila By Deji</a><button class="shop-top-cart" id="cart-button" type="button" aria-label="Open shopping cart" aria-controls="cart-drawer" aria-expanded="false">
+    <svg width="21" height="21" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><rect x="4" y="7" width="16" height="14" rx="2"/><path d="M9 10V6a3 3 0 0 1 6 0v4"/></svg><span class="shop-cart-count" id="cart-count" aria-live="polite">0</span></button></header>
+  <main class="details-main" id="main">
+    <div class="collection-heading detail-heading"><a href="collection.html" class="back-link" aria-label="Back to collections"><svg viewBox="0 0 24 24" width="26" height="26" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M19 12H5m7-7-7 7 7 7"/></svg></a><h1>Details</h1></div>
+    <section class="detail-feature" aria-label="Cap details">
+      <div class="detail-photo-frame"><img src="assets/premium.png" id="detail-photo" alt="Royal Agbada Cap"></div>
+      <div class="detail-info">
+        <h2 id="detail-title">Royal Agbada Cap</h2>
+        <p id="detail-description">Matching cap for royal Agbada with intricate embroidery</p>
+        <fieldset class="size-picker">
+          <legend>Variations Available:</legend>
+          <div class="size-options" id="detail-variations"></div>
+          <p class="size-error" id="size-error" role="alert" hidden>Please select a size before adding this cap to your cart.</p>
+        </fieldset>
+        <strong class="detail-price" id="detail-price">₦10,000</strong>
+        <button id="detail-add-to-cart" type="button" class="detail-add-btn">Add to cart</button>
+      </div>
+    </section>
+    <section class="related-section" aria-labelledby="related-heading">
+      <h2 id="related-heading">You Might Also Like</h2>
+      <div class="catalog-grid related-grid" id="related-grid"></div>
+    </section>
+  </main>
+  <footer class="shop-footer">
+    <div class="shop-footer__inner"><div class="shop-footer__columns">
+      <section><h2>Fila By Deji</h2><p>Quality caps for every style and<br> occasion.</p></section>
+      <nav aria-label="Footer links"><h2>Quick Links</h2><a href="index.html" data-story-link>About Us</a><a href="index.html" data-contact-link>Contact</a><a href="#" data-unavailable-link>Shipping Policy</a><a href="#" data-unavailable-link>Returns</a></nav>
+      <section><h2>Connect With Us</h2><div class="social-icons" aria-label="Social accounts — links to be added"><img src="assets/facebook.svg" alt="Facebook" width="24" height="24"><img src="assets/instagram.svg" alt="Instagram" width="24" height="24"><img src="assets/twitter.svg" alt="Twitter" width="24" height="24"></div></section>
+    </div><p class="shop-copyright">© 2025 Fila By Deji. All rights reserved.</p></div>
+  </footer>
+  <div class="overlay" id="overlay" hidden></div>
+  <aside class="cart-drawer" id="cart-drawer" role="dialog" aria-modal="true" aria-labelledby="cart-title" aria-hidden="true" tabindex="-1" inert>
+    <div class="drawer-header"><div><span class="eyebrow">FÌLÀ BY DEJI</span><h2 id="cart-title">Your cart</h2></div><button class="icon-button" id="close-cart" type="button" aria-label="Close cart">&times;</button></div>
+    <div class="cart-items" id="cart-items"></div>
+    <div class="drawer-footer"><div class="cart-total"><span>Subtotal</span><strong id="cart-total">₦0</strong></div><p class="cart-note">Checkout and payments will be connected in a later stage.</p><button type="button" id="continue-shopping" class="btn btn--gold btn--wide">Continue shopping</button></div>
+  </aside>
+  <div class="toast" id="toast" role="status" aria-live="polite"></div>
+</body>
+</html>
