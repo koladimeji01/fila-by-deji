@@ -223,7 +223,7 @@ function initContact(){
       window.location.href=`mailto:filabydeji@gmail.com?subject=${subject}&body=${body}`;
     }else{
       feedback.textContent='Opening WhatsApp. Review your message and tap Send in WhatsApp.';
-      window.location.assign(`https://wa.me/234806742294?text=${encodeURIComponent(text)}`);
+      window.location.assign(`https://wa.me/234806722794?text=${encodeURIComponent(text)}`);
     }
   });
 }
