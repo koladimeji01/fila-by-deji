@@ -1,66 +1,54 @@
 # FÌLÀ by Deji
 
-A responsive Yoruba cap storefront based on the [original Figma design](https://www.figma.com/design/px6gx3buqM8Uj2pqgGByXB/fila-by-deji?node-id=0-1). The frontend is HTML, CSS and vanilla JavaScript; the API uses FastAPI and SQLAlchemy.
-
-**Status: development / pre-deployment review. No payments or confirmed sales.** Do not launch as a paid store without completing the outstanding controls listed below.
+A polished, responsive, accessible frontend implementation based on the supplied Figma designs. Built with semantic **HTML5, CSS3, vanilla JavaScript**, and no build dependencies. The FÌLÀ logo follows the original Figma typography and black/yellow/charcoal signature stripes.
 
 ## Pages
 
-- Home: `index.html`
-- Collection and filtering: `collection.html`
-- Product details and size selection: `details.html?product=premium`
-- Shopping bag: `cart.html`
-- Draft checkout, **no payment**: `checkout.html`
-- Customer login / registration: `login.html`, `register.html`
-- Private draft orders and temporary holds: `orders.html`
-- Brand story and contact: `about.html`, `contact.html`
+- `index.html` — hero and featured collection
+- `collection.html` — product grid, live search, filters
+- `details.html?product=premium|classic|ceremonial` — product details, size and quantity selection
+- `cart.html` — persistent shopping bag
+- `checkout.html` — honest checkout preview, *not* a working payment form
+- `about.html` — heritage story
+- `contact.html` — non-sending enquiry composer
 
-## Original brand assets
+## Product images
 
-The repository includes the original Figma cap photos as `assets/ceremonial.jpg`, `assets/classic.jpg`, `assets/premium.jpg`, the `assets/hero.png` artwork, and `assets/fila-logo.png`. Product prices and stock are loaded from the API—not hardcoded in the live catalog.
+Real cap imagery comes from the original Figma design, using assets under `/assets`: `hero.png`, `ceremonial.png`, `classic.png`, `premium.png`. The original Figma design is at: https://www.figma.com/design/px6gx3buqM8Uj2pqgGByXB/fila-by-deji?node-id=0-1
 
-The historical `download-assets.*` scripts use expiring Figma asset links. Existing repository assets do **not** need redownloading.
+If the assets are not present yet, run `download-assets.ps1` on Windows or `download-assets.sh` on Unix. The scripts download **the original Figma asset URLs** and check whether each file is a valid PNG. These signed links may expire; in that case export the images anew from the original Figma document. The UI includes elegant fallback panels to avoid broken-image icons while assets are pending; never deploy for a client without the original photos.
 
-## Run locally on Ubuntu
+## Run locally
 
-First, create and configure `backend/.env` based on `backend/.env.example`. Generate a random `JWT_SECRET_KEY` using:
+Run a static server from the project root:
 
-```bash
-python3 -c "import secrets; print(secrets.token_urlsafe(48))"
+```sh
+python -m http.server 5500
 ```
 
-Never commit the real `.env` or the local SQLite database.
+Then visit http://localhost:5500. No npm installation needed.
 
-Backend terminal:
+## Scope and security
 
-```bash
-cd backend
-python3 -m venv .venv
-source .venv/bin/activate
-python -m pip install -r requirements-dev.txt
-python -m alembic upgrade head
-python -m app.seed
-python -m app.doctor
-pytest -q
-python -m uvicorn app.main:app --reload --host 127.0.0.1 --port 8000
-```
+This is **a frontend preview**: there is no server-side authentication, inventory system, completed orders, or live checkout/payment processing. The cart is browser-local and demonstrates interactions only. Prices in the Figma file are ₦10,000 for the three featured products. Product inventory and sizing should be confirmed before launching. Contact enquiries are only copied to the clipboard, not transmitted. Do not accept real payments or store personal customer information until a secure backend and verified payment integration are introduced.
 
-Frontend terminal (from the repository root):
+## Accessibility
 
-```bash
-python3 -m http.server 5500 --bind 127.0.0.1
-```
+Semantic landmarks, descriptive alt text, focus indicators, reduced-motion support, keyboard navigation, responsive grids, and accessible field labels.
 
-Open http://127.0.0.1:5500 and API documentation at http://127.0.0.1:8000/docs. Enter only **verified** cap stock quantities using `python -m app.inventory show` and `python -m app.inventory set <product> <size> <available_quantity>`.
+## Stage 6 — Stock by size and customer draft history
 
-## Ordering and limitations
+The backend now includes a zero-initialized inventory table and operator-only CLI to set **real, verified** stock, a new additive Alembic migration, backend stock checks for draft orders, pagination for customer history, and the authenticated `orders.html` page. Drafts remain unpaid and do **not** reserve stock. See [STAGE6_UBUNTU.md](STAGE6_UBUNTU.md) for Ubuntu update and test commands.
 
-Registration and login use Argon2/JWT; the backend validates product prices and stock. Customers can save drafts, temporarily hold stock for 15 minutes, cancel and view only their own orders. A draft does not reserve stock; a hold reserves available inventory but does **not** create a paid order.
 
-Security preparation includes CORS restrictions, request throttling, migration preflight and a stock-expiry sweep script. See [backend/README.md](backend/README.md) and [STAGE8_UBUNTU.md](STAGE8_UBUNTU.md).
+## Stage 7: Stock holds and operator API
 
-**Before deployment for real orders:** managed PostgreSQL and Redis, tested backups/restore, job scheduler, admin MFA/audit logs, password recovery and email verification, verified inventory and shipping policies, provider-signed payment webhooks/idempotency, and live deployment validation. Do not collect payment credentials or claim orders are paid.
+See [STAGE7_UBUNTU.md](STAGE7_UBUNTU.md). Customer My orders page can temporarily hold stock for 15 minutes and cancel holds. The admin API is role-protected and the migration preserves current orders. **No payment or confirmation flow exists.**
 
-## Audit
+## Stage 8 — Production preparation
 
-See [AUDIT_REPORT_2026-10-20.md](AUDIT_REPORT_2026-10-20.md) for defects fixed, automated test coverage, and outstanding launch blockers. Figma layout and brand assets were preserved during the code audit.
+See [`STAGE8_UBUNTU.md`](STAGE8_UBUNTU.md) for Ubuntu commands, schema preflight, basic API rate limiting, scheduled reservation expiry, and requirements before moving to PostgreSQL/Redis hosting. Payments are still disabled.
+
+## Stage 9 — Production environment preparation
+
+See [STAGE9_UBUNTU.md](STAGE9_UBUNTU.md) for the tested Docker-based API build, GitHub automated tests, PostgreSQL/Redis secret requirements, migration sequence, and outstanding pre-launch security tasks. Your local SQLite database is not modified or exported, and no paid production infrastructure has been provisioned.

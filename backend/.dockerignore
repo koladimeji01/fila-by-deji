@@ -1,0 +1,23 @@
+# Context is backend/. No development files or secrets should enter the image.
+.env
+.env.*
+!.env.example
+.git/
+.gitignore
+.venv/
+venv/
+__pycache__/
+**/__pycache__/
+*.py[cod]
+*.db
+*.db-*
+*.sqlite
+*.sqlite3
+*.sqlite*
+*.bak
+*.dump
+*.sql
+tests/
+.pytest_cache/
+.coverage
+*.log

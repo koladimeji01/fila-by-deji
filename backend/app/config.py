@@ -1,5 +1,6 @@
 from functools import lru_cache
 from typing import Literal
+from urllib.parse import parse_qs, urlsplit
 from pydantic import model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
@@ -20,15 +21,27 @@ class Settings(BaseSettings):
         if not 1 <= self.access_token_minutes <= 1440:
             raise ValueError('ACCESS_TOKEN_MINUTES must be between 1 and 1440')
         origins = self.allowed_origins
-        if '*' in origins:
+        if any('*' in origin for origin in origins):
             raise ValueError('Wildcard CORS origins are forbidden')
         if self.app_env == 'production':
             if not self.rate_limit_redis_url.startswith('rediss://'):
                 raise ValueError('Production requires RATE_LIMIT_REDIS_URL with rediss:// TLS')
             if not self.database_url.startswith('postgresql+psycopg://'):
                 raise ValueError('Production requires a PostgreSQL URL using the psycopg driver (postgresql+psycopg://)')
-            if any(not origin.startswith('https://') for origin in origins):
-                raise ValueError('Production CORS origins must use HTTPS')
+            db_parts = urlsplit(self.database_url)
+            tls_mode = parse_qs(db_parts.query).get('sslmode', [''])[0]
+            if not db_parts.hostname or tls_mode not in ('require', 'verify-ca', 'verify-full'):
+                raise ValueError('Production DATABASE_URL must specify PostgreSQL host and sslmode=require or stronger')
+            if not origins:
+                raise ValueError('Production requires at least one HTTPS CORS origin')
+            for origin in origins:
+                parts = urlsplit(origin)
+                if (parts.scheme != 'https' or not parts.hostname or parts.username or
+                        parts.password or parts.query or parts.fragment or parts.path not in ('', '/')):
+                    raise ValueError('Production CORS origins must be exact HTTPS origins without paths')
+                hostname = parts.hostname.lower()
+                if hostname in ('localhost', '127.0.0.1', '::1') or hostname.endswith('.local'):
+                    raise ValueError('Production CORS origins must not point to localhost')
         return self
 
     @property

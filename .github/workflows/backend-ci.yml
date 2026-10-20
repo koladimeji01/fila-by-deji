@@ -1,0 +1,42 @@
+name: FÌLÀ backend and static site checks
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'backend/**'
+      - 'js/**'
+      - 'css/**'
+      - '*.html'
+      - 'assets/**'
+      - '.github/workflows/backend-ci.yml'
+  pull_request:
+    paths:
+      - 'backend/**'
+      - 'js/**'
+      - 'css/**'
+      - '*.html'
+      - 'assets/**'
+      - '.github/workflows/backend-ci.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v4
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.13'
+      - name: Install dev dependencies
+        run: python -m pip install -r backend/requirements-dev.txt
+      - name: Python API and site regression tests
+        working-directory: backend
+        run: python -m pytest -q
+      - name: JavaScript syntax check
+        run: node --check js/app.js

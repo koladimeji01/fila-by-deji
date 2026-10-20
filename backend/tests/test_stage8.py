@@ -10,7 +10,7 @@ from app.rate_limit import match_rule
 
 
 PROD = dict(app_env='production', jwt_secret_key='s' * 64,
-            database_url='postgresql+psycopg://user:pass@db.local/fila',
+            database_url='postgresql+psycopg://user:pass@db.example.com/fila?sslmode=require',
             cors_origins='https://shop.example.org')
 
 
