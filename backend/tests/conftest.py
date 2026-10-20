@@ -20,6 +20,9 @@ from app.seed import seed_products  # noqa: E402
 
 @pytest.fixture
 def client():
+    # Isolate the development-only rate counter between unrelated tests.
+    from app.rate_limit import _memory
+    _memory.clear()
     Base.metadata.drop_all(bind=engine)
     Base.metadata.create_all(bind=engine)
     with SessionLocal() as session:

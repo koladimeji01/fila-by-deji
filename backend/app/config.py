@@ -11,6 +11,7 @@ class Settings(BaseSettings):
     jwt_secret_key: str  # no default secret, fails closed if missing
     access_token_minutes: int = 30
     cors_origins: str = 'http://127.0.0.1:5500,http://localhost:5500'
+    rate_limit_redis_url: str = ''  # Required in production, use rediss:// TLS
 
     @model_validator(mode='after')
     def validate_security(self):
@@ -22,6 +23,8 @@ class Settings(BaseSettings):
         if '*' in origins:
             raise ValueError('Wildcard CORS origins are forbidden')
         if self.app_env == 'production':
+            if not self.rate_limit_redis_url.startswith('rediss://'):
+                raise ValueError('Production requires RATE_LIMIT_REDIS_URL with rediss:// TLS')
             if not self.database_url.startswith('postgresql+psycopg://'):
                 raise ValueError('Production requires a PostgreSQL URL using the psycopg driver (postgresql+psycopg://)')
             if any(not origin.startswith('https://') for origin in origins):

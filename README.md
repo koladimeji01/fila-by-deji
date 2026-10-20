@@ -44,3 +44,7 @@ The backend now includes a zero-initialized inventory table and operator-only CL
 ## Stage 7: Stock holds and operator API
 
 See [STAGE7_UBUNTU.md](STAGE7_UBUNTU.md). Customer My orders page can temporarily hold stock for 15 minutes and cancel holds. The admin API is role-protected and the migration preserves current orders. **No payment or confirmation flow exists.**
+
+## Stage 8 — Production preparation
+
+See [`STAGE8_UBUNTU.md`](STAGE8_UBUNTU.md) for Ubuntu commands, schema preflight, basic API rate limiting, scheduled reservation expiry, and requirements before moving to PostgreSQL/Redis hosting. Payments are still disabled.

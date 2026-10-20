@@ -5,6 +5,7 @@ from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from .config import get_settings
+from .rate_limit import limit_request
 from .database import get_db
 from .models import Order, OrderItem, Product, ProductInventory, User
 from .schemas import (AdminOrderResponse, CreateDraftOrderRequest, LoginRequest, OrderItemResponse, OrderResponse,
@@ -15,8 +16,7 @@ from .reservations import aware, cancel_order, expire_holds, reserve_order
 settings = get_settings()
 app = FastAPI(title='FÌLÀ by Deji API', version='0.1.0', docs_url='/docs' if settings.app_env != 'production' else None,
               redoc_url=None)
-app.add_middleware(CORSMiddleware, allow_origins=settings.allowed_origins, allow_credentials=False,
-                   allow_methods=['GET', 'POST', 'PUT'], allow_headers=['Authorization', 'Content-Type'])
+app.middleware('http')(limit_request)
 
 
 @app.middleware('http')
@@ -25,7 +25,14 @@ async def private_response_headers(request: Request, call_next):
     if request.url.path.startswith(('/api/v1/auth/', '/api/v1/orders', '/api/v1/admin')):
         response.headers['Cache-Control'] = 'no-store'
     response.headers['X-Content-Type-Options'] = 'nosniff'
+    response.headers['X-Frame-Options'] = 'DENY'
+    response.headers['Referrer-Policy'] = 'no-referrer'
     return response
+
+
+# Added last: CORS wraps rate-limit/error responses so approved browsers can read 429/503.
+app.add_middleware(CORSMiddleware, allow_origins=settings.allowed_origins, allow_credentials=False,
+                   allow_methods=['GET', 'POST', 'PUT'], allow_headers=['Authorization', 'Content-Type'])
 
 
 def product_out(product: Product) -> ProductResponse:
