@@ -29,3 +29,16 @@ def test_stock_warning_and_checkout_controls_exist():
     assert 'id="bag-availability-notice"' in cart
     assert 'id="save-draft-order"' in checkout
     assert 'no payment' in checkout.lower()
+
+def test_contact_uses_real_whatsapp_and_email_links_without_product_photo():
+    page = (ROOT / 'contact.html').read_text(encoding='utf-8')
+    script = (ROOT / 'js/app.js').read_text(encoding='utf-8')
+    assert 'class="contact-image"' not in page
+    assert 'Copy my enquiry' not in page
+    assert 'mailto:filabydeji@gmail.com' in page
+    assert 'tel:+234806742294' in page
+    assert 'https://wa.me/234806742294' in page
+    assert 'name="channel" value="email"' in page
+    assert 'name="channel" value="whatsapp"' in page
+    assert 'https://wa.me/234806742294?text=' in script
+    assert 'mailto:filabydeji@gmail.com?subject=' in script

@@ -65,3 +65,22 @@ img.image-unavailable{opacity:0!important}.product-card__media:has(img.image-una
 .header-auth-link:focus-visible,.header-orders-link:focus-visible{outline:3px solid var(--gold);outline-offset:4px}
 /* Tablet: keep customer sign-in content inside the viewport. */
 @media (min-width:741px) and (max-width:980px){.auth-layout{grid-template-columns:minmax(0,1.1fr) minmax(0,.9fr);gap:30px}.auth-card{padding:28px}.auth-aside{padding:28px 0}.auth-aside h2{font-size:clamp(30px,4vw,40px);overflow-wrap:anywhere}}
+
+/* Contact page: direct seller details and app-based message choices */
+.contact-intro{min-width:0}.contact-methods{display:grid;gap:14px;margin-top:32px;max-width:460px}
+.contact-method{display:flex;align-items:flex-start;gap:17px;padding:19px 20px;border:1px solid var(--border);border-radius:9px;background:#fbfaf6;min-width:0}
+.contact-method__icon{display:grid;place-items:center;flex:0 0 42px;width:42px;height:42px;border-radius:9px;background:#fff1b4;color:#40330a}
+.contact-method__icon svg{width:21px;height:21px}
+.contact-method__details{display:flex;flex-direction:column;align-items:flex-start;gap:3px;min-width:0}
+.contact-method__label{font-size:11px;font-weight:700;letter-spacing:.14em;text-transform:uppercase;color:#726539}
+.contact-method__details>a:not(.contact-method__action){color:#202020;font-size:clamp(14px,1.65vw,17px);font-weight:700;overflow-wrap:anywhere;text-decoration:none}
+.contact-method__details>a:hover{text-decoration:underline;text-underline-offset:4px}
+.contact-method__hint{color:#777;font-size:12px}
+.contact-method__action{margin-top:3px;color:#6d5200;font-size:12px;font-weight:700;text-decoration:underline;text-underline-offset:4px}
+.enquiry-actions{display:grid;gap:10px;margin-top:24px}
+.enquiry-form .enquiry-actions button{margin-top:0}
+.enquiry-channel{font-size:11px;font-weight:500;opacity:.75}
+.button--outline{background:#fff;border-color:#d6d0c2;color:#272727}
+.button--outline:hover{background:#fbfaf6;border-color:#a79c80}
+.enquiry-form .enquiry-disclaimer{margin:14px 0 0;color:#666;font-size:11px;line-height:1.6}
+@media(max-width:740px){.contact-methods{margin-top:23px}.contact-method{padding:16px;gap:13px}.contact-layout{gap:28px}.contact-intro h2{font-size:clamp(36px,9vw,47px)}}

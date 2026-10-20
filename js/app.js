@@ -134,7 +134,6 @@ function renderBag(){const list=$('bag-items');if(!list)return;list.replaceChild
  const bottom=document.createElement('div');bottom.className='bag-line__bottom';const controls=document.createElement('div');controls.className='mini-quantity';const minus=document.createElement('button');minus.type='button';minus.textContent='−';minus.setAttribute('aria-label',`Remove one ${p.name} size ${size}`);minus.addEventListener('click',()=>updateCart(key,-1));const number=document.createElement('span');number.textContent=qty;const plus=document.createElement('button');plus.type='button';plus.textContent='+';plus.setAttribute('aria-label',`Add one ${p.name} size ${size}`);plus.addEventListener('click',()=>updateCart(key,1));controls.append(minus,number,plus);const remove=document.createElement('button');remove.className='remove-line';remove.type='button';remove.textContent='Remove';remove.addEventListener('click',()=>{delete cart[key];saveCart();renderBag()});bottom.append(controls,remove);main.append(top,bottom);row.append(img,main);list.append(row)}
  const total=Object.entries(cart).reduce((sum,[key,q])=>sum+(productForCart(key)?.product.price||0)*q,0);$('summary-subtotal').textContent=money(total);$('summary-total').textContent=money(total);const checkout=$('checkout-link');if(checkout){const unavailable=items.some(([key,n])=>{const item=productForCart(key);return n>10||!item||!item.product.availableSizes.includes(item.size)});checkout.setAttribute('aria-disabled',String(items.length===0||unavailable));checkout.onclick=e=>{if(!items.length||unavailable){e.preventDefault();toast('Remove unavailable caps or sizes before checking out.')}};const notice=$('bag-availability-notice');if(notice){notice.hidden=!unavailable;notice.textContent=unavailable?'Some bag items are unavailable or exceed the 10-per-size limit. Remove or reduce them to continue.':'';}}}
 function renderCheckout(){const node=$('checkout-items');if(!node)return;node.replaceChildren();let total=0;for(const [key,qty] of Object.entries(cart)){const sel=productForCart(key);if(!sel)continue;total+=sel.product.price*qty;const line=document.createElement('div');line.className='checkout-line';const text=document.createElement('span');text.textContent=`${sel.product.name} × ${qty}`;const small=document.createElement('small');small.textContent=`Size ${sel.size}`;text.append(small);const price=document.createElement('strong');price.textContent=money(sel.product.price*qty);line.append(text,price);node.append(line)}if(!node.childElementCount){const empty=document.createElement('p');empty.textContent='No caps selected yet.';node.append(empty)}$('checkout-subtotal').textContent=money(total)}
-async function copyText(text){if(navigator.clipboard?.writeText){await navigator.clipboard.writeText(text);return}const el=document.createElement('textarea');el.value=text;el.style.position='fixed';el.style.opacity='0';document.body.append(el);el.select();const success=document.execCommand('copy');el.remove();if(!success)throw Error('clipboard unavailable')}
 function renderOrderItem(item){
  const li=document.createElement('li');li.className='history-line';
  const title=document.createElement('span');title.textContent=`${item.product_name} · Size ${item.size} · Qty ${item.quantity}`;
@@ -206,7 +205,28 @@ async function initOrders(){
  };
  more.addEventListener('click',load);await load();
 }
-function initContact(){const form=$('enquiry-form');form?.addEventListener('submit',async event=>{event.preventDefault();if(!form.reportValidity())return;const name=$('enquiry-name').value.trim(),topic=$('enquiry-subject').value,msg=$('enquiry-message').value.trim();if(!name||!msg)return;const text=`Hello FÌLÀ by Deji,\n\nMy name is ${name}.\nSubject: ${topic}\n\n${msg}`;try{await copyText(text);$('enquiry-feedback').textContent='Your enquiry was copied. Paste it into your preferred messaging app to send.';toast('Enquiry copied — not sent.')}catch{$('enquiry-feedback').textContent='Could not copy automatically. Please select and copy your message above.'}})}
+function initContact(){
+  const form=$('enquiry-form');
+  form?.addEventListener('submit',event=>{
+    event.preventDefault();
+    if(!form.reportValidity())return;
+    const name=$('enquiry-name').value.trim();
+    const topic=$('enquiry-subject').value;
+    const message=$('enquiry-message').value.trim();
+    const feedback=$('enquiry-feedback');
+    if(!name||!message){feedback.textContent='Please enter your name and message.';return;}
+    const text=`Hello FÌLÀ by Deji,\n\nMy name is ${name}.\nSubject: ${topic}\n\n${message}`;
+    if(event.submitter?.value==='email'){
+      const subject=encodeURIComponent(`FÌLÀ by Deji — ${topic}`);
+      const body=encodeURIComponent(text);
+      feedback.textContent='Opening your email app. Review the message and press Send there.';
+      window.location.href=`mailto:filabydeji@gmail.com?subject=${subject}&body=${body}`;
+    }else{
+      feedback.textContent='Opening WhatsApp. Review your message and tap Send in WhatsApp.';
+      window.location.assign(`https://wa.me/234806742294?text=${encodeURIComponent(text)}`);
+    }
+  });
+}
 async function init(){
   initNavigation();updateBadges();updateAuthNavigation();
   if(['home','collection','details','cart','checkout'].includes(page)){
