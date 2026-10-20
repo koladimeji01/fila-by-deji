@@ -88,4 +88,20 @@ class OrderResponse(BaseModel):
     status: str
     total_ngn: int
     created_at: datetime
+    reserved_until: datetime | None = None
     items: list[OrderItemResponse]
+
+
+class StockUpdateRequest(BaseModel):
+    model_config = ConfigDict(extra='forbid')
+    available_quantity: int = Field(ge=0, le=100000)
+
+
+class StockLevelResponse(BaseModel):
+    product_id: str
+    size: str
+    available_quantity: int
+
+
+class AdminOrderResponse(OrderResponse):
+    user_id: str

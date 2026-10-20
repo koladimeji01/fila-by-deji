@@ -39,3 +39,8 @@ Semantic landmarks, descriptive alt text, focus indicators, reduced-motion suppo
 ## Stage 6 — Stock by size and customer draft history
 
 The backend now includes a zero-initialized inventory table and operator-only CLI to set **real, verified** stock, a new additive Alembic migration, backend stock checks for draft orders, pagination for customer history, and the authenticated `orders.html` page. Drafts remain unpaid and do **not** reserve stock. See [STAGE6_UBUNTU.md](STAGE6_UBUNTU.md) for Ubuntu update and test commands.
+
+
+## Stage 7: Stock holds and operator API
+
+See [STAGE7_UBUNTU.md](STAGE7_UBUNTU.md). Customer My orders page can temporarily hold stock for 15 minutes and cancel holds. The admin API is role-protected and the migration preserves current orders. **No payment or confirmation flow exists.**

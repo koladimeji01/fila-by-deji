@@ -61,3 +61,10 @@ def get_current_user(
     if user is None or not user.is_active:
         raise HTTPException(401, 'Invalid or expired token', headers={'WWW-Authenticate': 'Bearer'})
     return user
+
+
+def get_current_admin(user: User = Depends(get_current_user)) -> User:
+    # Hide administrative privileges from customers. Never infer admin from JWT claims.
+    if not user.is_admin:
+        raise HTTPException(403, 'Administrator privileges required')
+    return user

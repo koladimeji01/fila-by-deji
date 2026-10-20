@@ -140,37 +140,67 @@ function renderOrderItem(item){
  const price=document.createElement('strong');price.textContent=money(item.line_total_ngn);
  li.append(title,price);return li;
 }
+// Customer draft/hold management. Only API-calculated prices and states are authoritative.
 async function initOrders(){
  const list=$('orders-list'),feedback=$('orders-feedback'),more=$('load-more-orders');
  if(!list||!feedback||!more)return;
  if(!token()){location.assign('login.html?next=orders.html');return;}
- let offset=0, loading=false;
+ let offset=0,loading=false;
+ const labelFor=(order)=>{
+   if(order.status==='reserved'){
+     let timestamp=order.reserved_until||'';
+     // SQLite can return timezone-naive UTC timestamps; interpret as UTC.
+     if(timestamp&&!/(Z|[+-]\d\d:?\d\d)$/.test(timestamp))timestamp+='Z';
+     const date=new Date(timestamp);
+     return `Stock temporarily held${Number.isNaN(date.getTime())?'':` until ${date.toLocaleString('en-NG',{dateStyle:'medium',timeStyle:'short'})}`} · NOT paid`;
+   }
+   return {draft:'Draft · no stock held',expired:'Hold expired · stock released',cancelled:'Cancelled'}[order.status]||'Not a paid order';
+ };
+ const updateOrder=async(order,action,button)=>{
+   if(action==='reserve'&&!window.confirm('Temporarily hold this selection for 15 minutes? No payment will be taken.'))return;
+   button.disabled=true;
+   feedback.textContent=action==='reserve'?'Checking available stock…':'Cancelling your selection…';
+   try{
+     const changed=await apiRequest(`/orders/${encodeURIComponent(order.id)}/${action}`,{method:'POST',authorize:true});
+     feedback.textContent=action==='reserve'?'Stock held for 15 minutes. This is not an accepted or paid order.':'Selection cancelled. Reserved stock has been released.';
+     list.replaceChildren();offset=0;await load();
+     toast(`Order ${changed.status}. No payment taken.`);
+   }catch(err){feedback.textContent=`Unable to ${action}: ${err.message}`;button.disabled=false;}
+ };
  const load=async()=>{
-   if(loading)return;loading=true;more.disabled=true;feedback.textContent='Loading your draft history…';
+   if(loading)return;loading=true;more.disabled=true;feedback.textContent='Loading your order history…';
    try{
      const records=await apiRequest(`/orders?limit=20&offset=${offset}`,{authorize:true});
      if(!Array.isArray(records))throw new Error('Unexpected order history response.');
-     if(offset===0&&records.length===0){feedback.textContent='You have no draft orders yet.';}
-     else feedback.textContent='Your saved draft orders. No payments have been collected.';
+     feedback.textContent=offset===0&&records.length===0?'You have no saved orders yet.':'Drafts and holds only. No payments have been collected.';
      for(const order of records){
        const card=document.createElement('article');card.className='history-card';
        const heading=document.createElement('div');heading.className='history-card__heading';
-       const name=document.createElement('h2');name.textContent=`Draft ${String(order.id).slice(0,8).toUpperCase()}`;
-       const date=document.createElement('time');const d=new Date(order.created_at);date.textContent=Number.isNaN(d.getTime())?'':d.toLocaleString('en-NG',{dateStyle:'medium',timeStyle:'short'});
+       const name=document.createElement('h2');name.textContent=`Selection ${String(order.id).slice(0,8).toUpperCase()}`;
+       const date=document.createElement('time');const d=new Date(order.created_at);
+       date.textContent=Number.isNaN(d.getTime())?'':d.toLocaleString('en-NG',{dateStyle:'medium',timeStyle:'short'});
        heading.append(name,date);
        const ref=document.createElement('p');ref.className='history-ref';ref.textContent=`Reference: ${order.id}`;
        const items=document.createElement('ul');items.className='history-items';
        for(const item of order.items||[])items.append(renderOrderItem(item));
        const foot=document.createElement('div');foot.className='history-card__foot';
-       const label=document.createElement('span');label.textContent='Draft only · no stock reserved';
+       const label=document.createElement('span');label.textContent=labelFor(order);
        const total=document.createElement('strong');total.textContent=money(order.total_ngn);foot.append(label,total);
-       card.append(heading,ref,items,foot);list.append(card);
+       card.append(heading,ref,items,foot);
+       if(['draft','reserved'].includes(order.status)){
+         const actions=document.createElement('div');actions.className='history-actions';
+         if(order.status==='draft'){
+           const hold=document.createElement('button');hold.type='button';hold.className='button button--gold';hold.textContent='Hold stock for 15 minutes';
+           hold.addEventListener('click',()=>updateOrder(order,'reserve',hold));actions.append(hold);
+         }
+         const cancel=document.createElement('button');cancel.type='button';cancel.className='button button--dark';cancel.textContent='Cancel selection';
+         cancel.addEventListener('click',()=>updateOrder(order,'cancel',cancel));actions.append(cancel);card.append(actions);
+       }
+       list.append(card);
      }
      offset+=records.length;more.hidden=records.length<20;
-   }catch(err){
-     feedback.textContent=`Could not load orders: ${err.message}`;
+   }catch(err){feedback.textContent=`Could not load orders: ${err.message}`;more.hidden=false;
      if(!token()){location.assign('login.html?next=orders.html');return;}
-     more.hidden=false;
    }finally{loading=false;more.disabled=false;}
  };
  more.addEventListener('click',load);await load();

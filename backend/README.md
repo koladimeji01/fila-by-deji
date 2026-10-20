@@ -1,6 +1,22 @@
-# FÌLÀ by Deji — FastAPI backend (foundation)
+# FÌLÀ by Deji — FastAPI backend (Stage 7)
 
 This backend is **in development** and must not yet be used to accept live payments or fulfill orders.
+
+## Stage 7 additions
+
+- `POST /api/v1/orders/{id}/reserve`: 15-minute temporary hold, atomic per-size
+  decrement, single active hold per customer, server-side repricing.
+- `POST /api/v1/orders/{id}/cancel`: cancel draft or hold and restore inventory
+  exactly once. Expired holds restore stock automatically on relevant API reads
+  or `python -m app.expire` cleanup.
+- `GET /api/v1/admin/inventory`, `PUT /api/v1/admin/inventory/{product_id}/{size}`,
+  `GET /api/v1/admin/orders`, and admin expiry cleanup require a database-backed
+  `is_admin` role. `python -m app.admin grant --email ...` only via authorized
+  operator terminal. Public signup does **not** grant administrative privileges.
+- All legacy orders remain drafts after the additive Alembic `0003_holds` migration.
+- **None of these operations accepts payments or creates confirmed sales.**
+
+See [`../STAGE7_UBUNTU.md`](../STAGE7_UBUNTU.md) for Ubuntu instructions.
 
 ## What works
 

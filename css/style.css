@@ -55,3 +55,6 @@ img.image-unavailable{opacity:0!important}.product-card__media:has(img.image-una
 .history-line strong{white-space:nowrap}.history-card__foot{margin-top:18px;font-size:13px}
 .history-card__foot strong{font-size:20px}
 @media(max-width:680px){.header-orders-link{font-size:11px;padding:4px}.history-card{padding:18px}.history-card__heading{align-items:flex-start;flex-direction:column;gap:6px}.history-card__foot{align-items:flex-start}.history-card__foot span{max-width:55%}}
+
+/* Stage 7 - temporary holds on order history */
+.history-actions{display:flex;gap:12px;flex-wrap:wrap;margin-top:15px}.history-actions .button{font-size:12px;padding:10px 18px;min-height:42px}.history-card__foot span{max-width:75%;font-size:13px}

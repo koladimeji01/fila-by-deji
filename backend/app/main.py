@@ -1,27 +1,28 @@
 from fastapi import Depends, FastAPI, HTTPException, Query, Request, Response, status
 from fastapi.middleware.cors import CORSMiddleware
-from sqlalchemy import select, text
+from sqlalchemy import select, text, update
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from .config import get_settings
 from .database import get_db
 from .models import Order, OrderItem, Product, ProductInventory, User
-from .schemas import (CreateDraftOrderRequest, LoginRequest, OrderItemResponse, OrderResponse,
-                      ProductResponse, RegisterRequest, TokenResponse, UserResponse)
-from .security import create_token, get_current_user, hash_password, verify_password
+from .schemas import (AdminOrderResponse, CreateDraftOrderRequest, LoginRequest, OrderItemResponse, OrderResponse,
+                      ProductResponse, RegisterRequest, StockLevelResponse, StockUpdateRequest, TokenResponse, UserResponse)
+from .security import create_token, get_current_admin, get_current_user, hash_password, verify_password
+from .reservations import aware, cancel_order, expire_holds, reserve_order
 
 settings = get_settings()
 app = FastAPI(title='FÌLÀ by Deji API', version='0.1.0', docs_url='/docs' if settings.app_env != 'production' else None,
               redoc_url=None)
 app.add_middleware(CORSMiddleware, allow_origins=settings.allowed_origins, allow_credentials=False,
-                   allow_methods=['GET', 'POST'], allow_headers=['Authorization', 'Content-Type'])
+                   allow_methods=['GET', 'POST', 'PUT'], allow_headers=['Authorization', 'Content-Type'])
 
 
 @app.middleware('http')
 async def private_response_headers(request: Request, call_next):
     response = await call_next(request)
-    if request.url.path.startswith(('/api/v1/auth/', '/api/v1/orders')):
+    if request.url.path.startswith(('/api/v1/auth/', '/api/v1/orders', '/api/v1/admin')):
         response.headers['Cache-Control'] = 'no-store'
     response.headers['X-Content-Type-Options'] = 'nosniff'
     return response
@@ -37,7 +38,7 @@ def product_out(product: Product) -> ProductResponse:
 def order_out(order: Order) -> OrderResponse:
     return OrderResponse(
         id=order.id, status=order.status, total_ngn=order.total_kobo // 100,
-        created_at=order.created_at,
+        created_at=order.created_at, reserved_until=aware(order.reserved_until),
         items=[OrderItemResponse(
             product_id=item.product_id, product_name=item.product_name, size=item.size,
             quantity=item.quantity, unit_price_ngn=item.unit_price_kobo // 100,
@@ -83,12 +84,14 @@ def me(user: User = Depends(get_current_user)):
 
 @app.get('/api/v1/products', response_model=list[ProductResponse])
 def products(db: Session = Depends(get_db)):
+    expire_holds(db)
     entries = db.scalars(select(Product).where(Product.is_active.is_(True)).order_by(Product.id)).all()
     return [product_out(p) for p in entries]
 
 
 @app.get('/api/v1/products/{product_id}', response_model=ProductResponse)
 def product(product_id: str, db: Session = Depends(get_db)):
+    expire_holds(db)
     entry = db.get(Product, product_id)
     if entry is None or not entry.is_active:
         raise HTTPException(404, 'Product not found')
@@ -98,6 +101,7 @@ def product(product_id: str, db: Session = Depends(get_db)):
 @app.post('/api/v1/orders/drafts', response_model=OrderResponse, status_code=status.HTTP_201_CREATED)
 def create_draft_order(body: CreateDraftOrderRequest, db: Session = Depends(get_db),
                        user: User = Depends(get_current_user)):
+    expire_holds(db)
     products = {p.id: p for p in db.scalars(select(Product).where(
         Product.id.in_([item.product_id for item in body.items]), Product.is_active.is_(True))).all()}
     if len(products) != len({item.product_id for item in body.items}):
@@ -125,13 +129,74 @@ def create_draft_order(body: CreateDraftOrderRequest, db: Session = Depends(get_
 @app.get('/api/v1/orders', response_model=list[OrderResponse])
 def my_orders(limit: int = Query(20, ge=1, le=100), offset: int = Query(0, ge=0),
               db: Session = Depends(get_db), user: User = Depends(get_current_user)):
+    expire_holds(db)
     return [order_out(o) for o in db.scalars(select(Order).where(Order.user_id == user.id)
                     .order_by(Order.created_at.desc(), Order.id.desc()).offset(offset).limit(limit)).all()]
 
 
 @app.get('/api/v1/orders/{order_id}', response_model=OrderResponse)
 def order_detail(order_id: str, db: Session = Depends(get_db), user: User = Depends(get_current_user)):
+    expire_holds(db)
     order = db.scalar(select(Order).where(Order.id == order_id, Order.user_id == user.id))
     if order is None:
         raise HTTPException(404, 'Order not found')
     return order_out(order)
+
+
+@app.post('/api/v1/orders/{order_id}/reserve', response_model=OrderResponse)
+def reserve_my_draft(order_id: str, db: Session = Depends(get_db),
+                     user: User = Depends(get_current_user)):
+    order = db.scalar(select(Order).where(Order.id == order_id, Order.user_id == user.id))
+    if order is None:
+        raise HTTPException(404, 'Order not found')
+    return order_out(reserve_order(db, order, user))
+
+
+@app.post('/api/v1/orders/{order_id}/cancel', response_model=OrderResponse)
+def cancel_my_order(order_id: str, db: Session = Depends(get_db),
+                    user: User = Depends(get_current_user)):
+    order = db.scalar(select(Order).where(Order.id == order_id, Order.user_id == user.id))
+    if order is None:
+        raise HTTPException(404, 'Order not found')
+    return order_out(cancel_order(db, order))
+
+
+@app.get('/api/v1/admin/inventory', response_model=list[StockLevelResponse])
+def admin_inventory(db: Session = Depends(get_db), admin: User = Depends(get_current_admin)):
+    expire_holds(db)
+    rows = db.scalars(select(ProductInventory).order_by(ProductInventory.product_id, ProductInventory.size)).all()
+    return [StockLevelResponse(product_id=r.product_id, size=r.size,
+                               available_quantity=r.quantity) for r in rows]
+
+
+@app.put('/api/v1/admin/inventory/{product_id}/{size}', response_model=StockLevelResponse)
+def admin_set_available(product_id: str, size: str, body: StockUpdateRequest,
+                        db: Session = Depends(get_db), admin: User = Depends(get_current_admin)):
+    expire_holds(db)
+    if size not in ('32', '35', '39', '41'):
+        raise HTTPException(422, 'Invalid size')
+    if db.get(Product, product_id) is None:
+        raise HTTPException(404, 'Product not found')
+    result = db.execute(update(ProductInventory).where(
+        ProductInventory.product_id == product_id, ProductInventory.size == size
+    ).values(quantity=body.available_quantity))
+    if result.rowcount != 1:
+        db.rollback()
+        raise HTTPException(409, 'Stock record missing. Run the product seed step.')
+    db.commit()
+    return StockLevelResponse(product_id=product_id, size=size, available_quantity=body.available_quantity)
+
+
+@app.get('/api/v1/admin/orders', response_model=list[AdminOrderResponse])
+def admin_orders(limit: int = Query(20, ge=1, le=100), offset: int = Query(0, ge=0),
+                 db: Session = Depends(get_db), admin: User = Depends(get_current_admin)):
+    expire_holds(db)
+    rows = db.scalars(select(Order).order_by(Order.created_at.desc(), Order.id.desc())
+                      .offset(offset).limit(limit)).all()
+    return [AdminOrderResponse(**order_out(o).model_dump(), user_id=o.user_id) for o in rows]
+
+
+@app.post('/api/v1/admin/reservations/release-expired')
+def admin_release_expired(db: Session = Depends(get_db),
+                          admin: User = Depends(get_current_admin)):
+    return {'expired': expire_holds(db)}
