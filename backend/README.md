@@ -1,17 +1,49 @@
-# FÌLÀ by Deji — FastAPI API (Stage 8)
+# FÌLÀ by Deji — FastAPI backend
 
-This backend is **still under development**. Customers can sign up, authenticate, browse a seeded catalog, create draft orders, view their order history and temporarily hold available stock. Admin-only APIs can manage *available* inventory. **There is no payment, delivery or order confirmation API.**
+**Development API, not a live payment processor.**
 
-## Local Ubuntu setup
+## Implemented
 
-From the `backend` directory with Python 3.11+:
+- Customer registration/login and private profile (Argon2 password hashing, JWT).
+- API-backed product catalog with per-size availability, current prices read from the database.
+- Server-validated drafts and 15-minute stock holds. A **draft** does not decrement stock; a **reservation** temporarily decrements available stock and is released on expiry/cancellation.
+- Customer-only order history and operator-only stock/order endpoints.
+- Migrations `0001_initial`, `0002_inventory`, `0003_holds`; the API now checks schema readiness at startup (except isolated tests).
+- Rate limits: development memory counters, Redis TLS required in production; restricted CORS and no-store headers on sensitive endpoints and product availability.
+- Expiry cleanup CLI: `python -m app.expire` and `scripts/sweep-expired.sh`.
+
+## API endpoints
+
+| Method | Route | Access |
+| --- | --- | --- |
+| GET | `/api/v1/health` | Public |
+| GET | `/api/v1/products`, `/api/v1/products/{id}` | Public |
+| POST | `/api/v1/auth/register`, `/api/v1/auth/login` | Public, rate-limited |
+| GET | `/api/v1/auth/me` | Authenticated |
+| POST | `/api/v1/orders/drafts` | Authenticated |
+| GET | `/api/v1/orders`, `/api/v1/orders/{id}` | Owner |
+| POST | `/api/v1/orders/{id}/reserve`, `/api/v1/orders/{id}/cancel` | Owner |
+| GET | `/api/v1/admin/inventory`, `/api/v1/admin/orders` | Administrator |
+| PUT | `/api/v1/admin/inventory/{product_id}/{size}` | Administrator |
+| POST | `/api/v1/admin/reservations/release-expired` | Administrator |
+
+Customers cannot set order prices, invent payment status or grant themselves administrator access. Only a trusted operator should run `python -m app.admin grant --email ...` locally.
+
+## Ubuntu setup
+
+From the repository's `backend/` folder:
 
 ```bash
 python3 -m venv .venv
 source .venv/bin/activate
 python -m pip install -r requirements-dev.txt
 cp -n .env.example .env
-# Replace the JWT_SECRET_KEY placeholder with a unique, randomly generated secret.
+python -c "import secrets; print(secrets.token_urlsafe(48))"
+```
+
+Replace the `JWT_SECRET_KEY` placeholder inside `.env` with the generated secret. Do not publish secrets. Then:
+
+```bash
 python -m alembic upgrade head
 python -m app.seed
 python -m app.doctor
@@ -19,24 +51,10 @@ pytest -q
 python -m uvicorn app.main:app --reload --host 127.0.0.1 --port 8000
 ```
 
-Open `http://127.0.0.1:8000/docs` and `/api/v1/products`. Run the frontend on port 5500 separately. Never commit `.env`, a database backup, or real passwords. For a step-by-step migration, see [`../STAGE8_UBUNTU.md`](../STAGE8_UBUNTU.md).
+Local development uses SQLite only. For production, set the privately provisioned PostgreSQL URL, `APP_ENV=production`, `RATE_LIMIT_REDIS_URL=rediss://...`, a long unique JWT secret and the exact HTTPS storefront origin as `CORS_ORIGINS`.
 
-## API overview
+## Still required before sales/deployment
 
-- Public: `GET /api/v1/health`, `GET /api/v1/products`, `GET /api/v1/products/{id}`, `POST /api/v1/auth/register`, `POST /api/v1/auth/login`.
-- Authenticated: `GET /api/v1/auth/me`, `POST /api/v1/orders/drafts`, `GET /api/v1/orders`, `GET /api/v1/orders/{id}`, `POST /api/v1/orders/{id}/reserve`, `POST /api/v1/orders/{id}/cancel`.
-- Admin only: `GET /api/v1/admin/inventory`, `PUT /api/v1/admin/inventory/{id}/{size}`, `GET /api/v1/admin/orders`, `POST /api/v1/admin/reservations/release-expired`.
+Test real PostgreSQL concurrency and recovery; configure independent DB backups and reservation-expiry scheduler; add email verification and password resets, admin MFA, durable audit logging and anti-abuse monitoring; implement shipping, refunds and policy requirements; and integrate provider-verified payments with signed webhooks and idempotent reconciliation.
 
-A **draft** does not reserve stock. A **reservation** reduces available per-size inventory for 15 minutes; cancellation and expiry restore stock once, with transactional conditional writes. Order totals are recalculated by the server. The app never accepts client-supplied prices or payment status. The original seeded prices and sizes are placeholders pending merchant verification.
-
-## Stage 8 security and operations
-
-- `python -m app.doctor` checks DB connectivity, Alembic revision (`0003_holds`), required tables/columns, plus Redis connectivity in production. It is **read-only** and refuses mismatched schemas.
-- The API rate-limits sensitive POST/PUT routes by source IP, returning `429` and a `Retry-After` header. Local development uses an in-process counter; **production requires an external Redis over TLS** via `RATE_LIMIT_REDIS_URL=rediss://...` for cross-worker counters. If Redis fails, protected endpoints fail closed with `503`.
-- CORS is restricted to configured origins, including the new rate-limit responses. Auth/order/admin APIs use `Cache-Control: no-store`; headers also include `nosniff`, `DENY` frames, and `no-referrer`.
-- `scripts/sweep-expired.sh` can be run by Ubuntu cron every minute; a production deployment must provide an **independent** hosted scheduler and monitoring. Expiration also occurs lazily during relevant API requests.
-- `APP_ENV=production` requires PostgreSQL with psycopg, HTTPS frontend CORS origins, a 32+-character JWT secret and shared TLS Redis. Production API documentation is off.
-
-## Production limitations
-
-This is a **pre-deployment hardening increment**, not production-readiness certification. Rate limiting is per reported connection IP: ensure proxy headers are trusted only from an authorized reverse proxy, and add email/account-specific defenses to reduce shared-IP collateral damage. Additional work includes secure hosting and backups, concurrency tests on PostgreSQL, admin MFA, email confirmation/password recovery, logs/auditing, privacy/data retention, validated shipping, and signed payment webhooks/idempotency. Payments and fulfillment remain disabled.
+**There is intentionally no paid/confirmed/shipped order transition.** See [Stage 8 Ubuntu instructions](../STAGE8_UBUNTU.md) and [audit report](../AUDIT_REPORT_2026-10-20.md).
