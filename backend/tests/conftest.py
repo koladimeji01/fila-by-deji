@@ -13,6 +13,7 @@ os.environ['CORS_ORIGINS'] = 'http://localhost:5500'
 
 from app.database import Base, engine, SessionLocal  # noqa: E402
 from app import models  # noqa: E402, F401
+from app.models import ProductInventory  # noqa: E402
 from app.main import app  # noqa: E402
 from app.seed import seed_products  # noqa: E402
 
@@ -23,6 +24,9 @@ def client():
     Base.metadata.create_all(bind=engine)
     with SessionLocal() as session:
         seed_products(session)
+        for item in session.query(ProductInventory).all():
+            item.quantity = 8
+        session.commit()
     with TestClient(app) as api:
         yield api
 

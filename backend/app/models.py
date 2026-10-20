@@ -29,6 +29,7 @@ class Product(Base):
     price_kobo: Mapped[int] = mapped_column(Integer, nullable=False)
     image_url: Mapped[str] = mapped_column(String(300), nullable=False)
     is_active: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True)
+    stock_levels: Mapped[list['ProductInventory']] = relationship(back_populates='product', cascade='all, delete-orphan', lazy='selectin')
     __table_args__ = (CheckConstraint('price_kobo > 0', name='ck_product_positive_price'),)
 
 
@@ -58,3 +59,14 @@ class OrderItem(Base):
         CheckConstraint('quantity > 0', name='ck_order_item_positive_quantity'),
         CheckConstraint('unit_price_kobo > 0', name='ck_order_item_positive_price'),
     )
+
+
+class ProductInventory(Base):
+    """Explicit per-size stock. A missing row is treated as unavailable."""
+    __tablename__ = 'product_inventory'
+    product_id: Mapped[str] = mapped_column(ForeignKey('products.id', ondelete='CASCADE'), primary_key=True)
+    size: Mapped[str] = mapped_column(String(4), primary_key=True)
+    quantity: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    product: Mapped[Product] = relationship(back_populates='stock_levels')
+    __table_args__ = (CheckConstraint('quantity >= 0', name='ck_inventory_nonnegative_quantity'),
+                      CheckConstraint("size IN ('32', '35', '39', '41')", name='ck_inventory_valid_size'))

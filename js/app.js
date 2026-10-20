@@ -33,7 +33,7 @@ async function loadProducts(){
   PRODUCTS=data.filter(p=>typeof p.id==='string'&&/^[a-z0-9_-]{1,60}$/.test(p.id)&&typeof p.name==='string'&&Number.isSafeInteger(p.price_ngn)&&p.price_ngn>=0)
     .map(p=>({id:p.id,name:p.name,category:p.category||'',description:p.description||'',price:p.price_ngn,
       // All images are shipped locally with this site: never trust a remote URL in the API response.
-      image:`assets/${p.id}.jpg`}));
+      image:`assets/${p.id}.jpg`,availableSizes:Array.isArray(p.available_sizes)?p.available_sizes.filter(size=>SIZES.includes(size)):[]}));
   if(!PRODUCTS.length)throw new Error('No active products were returned. Run python -m app.seed in backend/.');
 }
 function showCatalogError(message){
@@ -49,9 +49,15 @@ function updateAuthNavigation(){
   const link=document.createElement(token()?'button':'a');link.className='header-auth-link';
   if(token()){link.type='button';link.textContent='Sign out';link.addEventListener('click',()=>{storeToken('');updateAuthNavigation();toast('Signed out of this browser session.');});}
   else{link.href='login.html';link.textContent='Sign in';}
-  controls.querySelector('.header-auth-link')?.remove();controls.prepend(link);
+  controls.querySelector('.header-auth-link')?.remove();
+  controls.querySelector('.header-orders-link')?.remove();
+  if(token()){
+    const orders=document.createElement('a');orders.href='orders.html';orders.className='header-orders-link';
+    orders.textContent='My drafts';controls.prepend(orders);
+  }
+  controls.prepend(link);
 }
-function safeNext(){const next=new URLSearchParams(location.search).get('next');return ['checkout.html','cart.html','index.html','collection.html'].includes(next)?next:'checkout.html';}
+function safeNext(){const next=new URLSearchParams(location.search).get('next');return ['checkout.html','cart.html','index.html','collection.html','orders.html'].includes(next)?next:'checkout.html';}
 async function initAuth(){
  const form=$('customer-auth-form');if(!form)return;
  const feedback=$('auth-feedback'),submit=$('auth-submit');
@@ -85,7 +91,7 @@ function initDraftCheckout(){
    try{
      const body={items:entries.map(([key,n])=>({product_id:productForCart(key).product.id,size:productForCart(key).size,quantity:n}))};
      const order=await apiRequest('/orders/drafts',{method:'POST',body,authorize:true});
-     feedback.textContent=`Draft saved. Reference: ${order.id}. Server-calculated subtotal: ${money(order.total_ngn)}. This is not a paid or accepted order.`;
+     feedback.textContent=`Draft saved. Reference: ${order.id}. Server-calculated subtotal: ${money(order.total_ngn)}. This is not a paid or accepted order. `;const link=document.createElement('a');link.href='orders.html';link.textContent='View my draft orders';feedback.append(link);
      feedback.className='draft-feedback draft-success';
      justSaved=true;btn.textContent='Draft saved ✓';toast('Draft order saved to your account. No payment taken.');
    }catch(err){feedback.textContent=`Could not save draft: ${err.message}`;feedback.className='draft-feedback auth-error';}
@@ -110,7 +116,7 @@ function updateBadges(){document.querySelectorAll('[data-cart-count]').forEach(e
 function toast(text){const el=$('toast');if(!el)return;clearTimeout(toastId);el.textContent=text;el.classList.add('is-visible');toastId=setTimeout(()=>el.classList.remove('is-visible'),3700)}
 function makeImage(src,alt,eager=false){const img=document.createElement('img');img.src=src;img.alt=alt;img.loading=eager?'eager':'lazy';img.decoding='async';img.addEventListener('error',()=>img.classList.add('image-unavailable'),{once:true});return img}
 function productCard(p){const link=document.createElement('a');link.className='product-card';link.href=`details.html?product=${encodeURIComponent(p.id)}`;link.setAttribute('aria-label',`View ${p.name} details, ${money(p.price)}`);
- const visual=document.createElement('div');visual.className='product-card__media';visual.append(makeImage(p.image,p.name));const badge=document.createElement('span');badge.className='product-badge';badge.textContent=p.category;visual.append(badge);
+ const visual=document.createElement('div');visual.className='product-card__media';visual.append(makeImage(p.image,p.name));const badge=document.createElement('span');badge.className='product-badge';badge.textContent=p.availableSizes.length?p.category:'Currently unavailable';visual.append(badge);
  const body=document.createElement('div');body.className='product-card__body';const heading=document.createElement('h3');heading.textContent=p.name;const para=document.createElement('p');para.textContent=p.description;const bottom=document.createElement('div');bottom.className='product-card__bottom';const price=document.createElement('strong');price.textContent=money(p.price);const arrow=document.createElement('span');arrow.className='product-card__arrow';arrow.innerHTML=icons.arrow;arrow.setAttribute('aria-hidden','true');bottom.append(price,arrow);body.append(heading,para,bottom);link.append(visual,body);return link}
 function renderGrid(id,data){const grid=$(id);if(grid)grid.replaceChildren(...data.map(productCard))}
 function initNavigation(){const toggle=$('menu-toggle'),nav=$('site-navigation');toggle?.addEventListener('click',()=>{let open=nav.classList.toggle('is-open');toggle.setAttribute('aria-expanded',String(open));toggle.setAttribute('aria-label',open?'Close navigation':'Open navigation')});document.addEventListener('keydown',e=>{if(e.key==='Escape'&&nav?.classList.contains('is-open')){nav.classList.remove('is-open');toggle.setAttribute('aria-expanded','false');toggle.focus()}});
@@ -118,7 +124,8 @@ function initNavigation(){const toggle=$('menu-toggle'),nav=$('site-navigation')
 function renderCollection(){const q=($('search-input')?.value||'').trim().toLowerCase();const data=PRODUCTS.filter(p=>(filter==='all'||p.id===filter)&&`${p.name} ${p.category} ${p.description}`.toLowerCase().includes(q));renderGrid('collection-products',data);$('collection-empty').hidden=data.length>0;$('results-count').textContent=`${data.length} ${data.length===1?'style':'styles'}`;document.querySelectorAll('[data-filter]').forEach(b=>{const on=b.dataset.filter===filter;b.classList.toggle('is-selected',on);b.setAttribute('aria-pressed',String(on))})}
 function initCollection(){$('search-input')?.addEventListener('input',renderCollection);document.querySelectorAll('[data-filter]').forEach(b=>b.addEventListener('click',()=>{filter=b.dataset.filter;renderCollection()}));$('clear-filters')?.addEventListener('click',()=>{filter='all';$('search-input').value='';renderCollection()});renderCollection()}
 function initDetails(){const id=new URLSearchParams(location.search).get('product');const product=productById(id)||PRODUCTS[2];$('product-title').textContent=product.name;$('product-description').textContent=product.description;$('product-price').textContent=money(product.price);$('product-category').textContent=`${product.category.toUpperCase()} COLLECTION`;$('crumb-product').textContent=product.name;document.title=`${product.name} | FÌLÀ by Deji`;const photo=$('product-photo');photo.src=product.image;photo.alt=product.name;
- const options=SIZES.map(size=>{const btn=document.createElement('button');btn.type='button';btn.className='size-option';btn.textContent=size;btn.setAttribute('aria-pressed','false');btn.setAttribute('aria-label',`Choose cap size ${size}`);btn.addEventListener('click',()=>{selectedSize=size;$('selected-size').textContent=`Size ${size} selected`;$('size-error').hidden=true;document.querySelectorAll('.size-option').forEach(b=>b.setAttribute('aria-pressed',String(b===btn)))});return btn});$('size-options').replaceChildren(...options);
+ const options=SIZES.map(size=>{const btn=document.createElement('button');btn.type='button';btn.className='size-option';btn.textContent=size;btn.disabled=!product.availableSizes.includes(size);btn.setAttribute('aria-pressed','false');btn.setAttribute('aria-label',`Choose cap size ${size}${btn.disabled?' — out of stock':''}`);btn.addEventListener('click',()=>{selectedSize=size;$('selected-size').textContent=`Size ${size} selected`;$('size-error').hidden=true;document.querySelectorAll('.size-option').forEach(b=>b.setAttribute('aria-pressed',String(b===btn)))});return btn});$('size-options').replaceChildren(...options);
+ if(!product.availableSizes.length){$('selected-size').textContent='This cap is currently out of stock.';$('add-to-bag').disabled=true;}
  const updateQty=delta=>{quantity=Math.min(10,Math.max(1,quantity+delta));$('quantity-display').textContent=String(quantity)};$('minus-quantity').addEventListener('click',()=>updateQty(-1));$('plus-quantity').addEventListener('click',()=>updateQty(1));$('add-to-bag').addEventListener('click',()=>{if(!selectedSize){$('size-error').hidden=false;options[0].focus();return}const key=`${product.id}:${selectedSize}`;cart[key]=Math.min(10,(cart[key]||0)+quantity);saveCart();toast(`${quantity} × ${product.name} added to your bag`);$('add-to-bag').textContent='Added to bag ✓';setTimeout(()=>{const btn=$('add-to-bag');if(btn)btn.innerHTML='Add to bag'},1700)});renderGrid('related-products',PRODUCTS.filter(p=>p.id!==product.id))}
 function updateCart(key,delta){const num=(cart[key]||0)+delta;if(num<=0)delete cart[key];else cart[key]=Math.min(num,10);saveCart();renderBag();renderCheckout()}
 function renderBag(){const list=$('bag-items');if(!list)return;list.replaceChildren();const items=Object.entries(cart);$('bag-items-count').textContent=`${countItems()} ${countItems()===1?'item':'items'}`;$('bag-empty').hidden=items.length>0;
@@ -127,6 +134,47 @@ function renderBag(){const list=$('bag-items');if(!list)return;list.replaceChild
  const total=Object.entries(cart).reduce((sum,[key,q])=>sum+(productForCart(key)?.product.price||0)*q,0);$('summary-subtotal').textContent=money(total);$('summary-total').textContent=money(total);const checkout=$('checkout-link');if(checkout){checkout.setAttribute('aria-disabled',String(items.length===0));checkout.onclick=e=>{if(!countItems())e.preventDefault()}}}
 function renderCheckout(){const node=$('checkout-items');if(!node)return;node.replaceChildren();let total=0;for(const [key,qty] of Object.entries(cart)){const sel=productForCart(key);if(!sel)continue;total+=sel.product.price*qty;const line=document.createElement('div');line.className='checkout-line';const text=document.createElement('span');text.textContent=`${sel.product.name} × ${qty}`;const small=document.createElement('small');small.textContent=`Size ${sel.size}`;text.append(small);const price=document.createElement('strong');price.textContent=money(sel.product.price*qty);line.append(text,price);node.append(line)}if(!node.childElementCount){const empty=document.createElement('p');empty.textContent='No caps selected yet.';node.append(empty)}$('checkout-subtotal').textContent=money(total)}
 async function copyText(text){if(navigator.clipboard?.writeText){await navigator.clipboard.writeText(text);return}const el=document.createElement('textarea');el.value=text;el.style.position='fixed';el.style.opacity='0';document.body.append(el);el.select();const success=document.execCommand('copy');el.remove();if(!success)throw Error('clipboard unavailable')}
+function renderOrderItem(item){
+ const li=document.createElement('li');li.className='history-line';
+ const title=document.createElement('span');title.textContent=`${item.product_name} · Size ${item.size} · Qty ${item.quantity}`;
+ const price=document.createElement('strong');price.textContent=money(item.line_total_ngn);
+ li.append(title,price);return li;
+}
+async function initOrders(){
+ const list=$('orders-list'),feedback=$('orders-feedback'),more=$('load-more-orders');
+ if(!list||!feedback||!more)return;
+ if(!token()){location.assign('login.html?next=orders.html');return;}
+ let offset=0, loading=false;
+ const load=async()=>{
+   if(loading)return;loading=true;more.disabled=true;feedback.textContent='Loading your draft history…';
+   try{
+     const records=await apiRequest(`/orders?limit=20&offset=${offset}`,{authorize:true});
+     if(!Array.isArray(records))throw new Error('Unexpected order history response.');
+     if(offset===0&&records.length===0){feedback.textContent='You have no draft orders yet.';}
+     else feedback.textContent='Your saved draft orders. No payments have been collected.';
+     for(const order of records){
+       const card=document.createElement('article');card.className='history-card';
+       const heading=document.createElement('div');heading.className='history-card__heading';
+       const name=document.createElement('h2');name.textContent=`Draft ${String(order.id).slice(0,8).toUpperCase()}`;
+       const date=document.createElement('time');const d=new Date(order.created_at);date.textContent=Number.isNaN(d.getTime())?'':d.toLocaleString('en-NG',{dateStyle:'medium',timeStyle:'short'});
+       heading.append(name,date);
+       const ref=document.createElement('p');ref.className='history-ref';ref.textContent=`Reference: ${order.id}`;
+       const items=document.createElement('ul');items.className='history-items';
+       for(const item of order.items||[])items.append(renderOrderItem(item));
+       const foot=document.createElement('div');foot.className='history-card__foot';
+       const label=document.createElement('span');label.textContent='Draft only · no stock reserved';
+       const total=document.createElement('strong');total.textContent=money(order.total_ngn);foot.append(label,total);
+       card.append(heading,ref,items,foot);list.append(card);
+     }
+     offset+=records.length;more.hidden=records.length<20;
+   }catch(err){
+     feedback.textContent=`Could not load orders: ${err.message}`;
+     if(!token()){location.assign('login.html?next=orders.html');return;}
+     more.hidden=false;
+   }finally{loading=false;more.disabled=false;}
+ };
+ more.addEventListener('click',load);await load();
+}
 function initContact(){const form=$('enquiry-form');form?.addEventListener('submit',async event=>{event.preventDefault();if(!form.reportValidity())return;const name=$('enquiry-name').value.trim(),topic=$('enquiry-subject').value,msg=$('enquiry-message').value.trim();if(!name||!msg)return;const text=`Hello FÌLÀ by Deji,\n\nMy name is ${name}.\nSubject: ${topic}\n\n${msg}`;try{await copyText(text);$('enquiry-feedback').textContent='Your enquiry was copied. Paste it into your preferred messaging app to send.';toast('Enquiry copied — not sent.')}catch{$('enquiry-feedback').textContent='Could not copy automatically. Please select and copy your message above.'}})}
 async function init(){
   initNavigation();updateBadges();updateAuthNavigation();
@@ -140,6 +188,7 @@ async function init(){
   if(page==='cart')renderBag();
   if(page==='checkout'){renderCheckout();initDraftCheckout();}
   if(page==='contact')initContact();
+  if(page==='orders')await initOrders();
   if(page==='login'||page==='register')initAuth();
 }
 if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',init);else init();

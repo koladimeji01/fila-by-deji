@@ -4,7 +4,7 @@ Run only after `alembic upgrade head`. Prices are examples, not verified stock.
 """
 from sqlalchemy.orm import Session
 from .database import SessionLocal
-from .models import Product
+from .models import Product, ProductInventory
 
 PRODUCTS = [
     ('ceremonial', 'Ceremonial Fila', 'Ceremonial',
@@ -22,6 +22,11 @@ def seed_products(session: Session) -> None:
             session.add(Product(id=product_id, name=name, category=category,
                                 description=description, price_kobo=price_kobo,
                                 image_url=image_url, is_active=True))
+    session.flush()
+    for product_id, *_ in PRODUCTS:
+        for size in ('32', '35', '39', '41'):
+            if session.get(ProductInventory, (product_id, size)) is None:
+                session.add(ProductInventory(product_id=product_id, size=size, quantity=0))
     session.commit()
 
 

@@ -37,3 +37,21 @@ img.image-unavailable{opacity:0!important}.product-card__media:has(img.image-una
 .form-feedback,.draft-feedback{font-size:13px;line-height:1.6;margin:16px 0 0;overflow-wrap:anywhere}
 .auth-error{color:#a7332e}.draft-success{color:#25663a}.checkout-panel #save-draft-order{margin:16px 0 4px}
 @media(max-width:740px){.header-auth-link{font-size:11px;padding:6px 0}.auth-layout{grid-template-columns:1fr;gap:10px;padding-top:44px;padding-bottom:65px}.auth-card{padding:25px 22px}.auth-card h2{font-size:36px}.auth-aside{padding:28px 8px}.auth-aside h2{font-size:40px}}
+
+/* Stage 6: account history and size-specific availability */
+.header-orders-link{font-size:12px;font-weight:700;white-space:nowrap;padding:8px 7px;color:inherit;text-decoration:underline;text-underline-offset:4px}
+.size-option:disabled{opacity:.3;cursor:not-allowed;text-decoration:line-through}
+.draft-feedback a{display:inline-block;margin-left:8px;text-decoration:underline;font-weight:700}
+.history-section{padding-block:38px 94px;max-width:900px}
+.history-intro{margin-bottom:22px}.history-intro h2{font-family:var(--display);font-size:34px;margin-bottom:8px}
+.history-intro p,#orders-feedback{color:var(--subtle)}.history-list{display:grid;gap:18px;margin:25px 0}
+.history-card{padding:26px;border:1px solid var(--border);border-radius:var(--radius);background:#fff;box-shadow:var(--shadow)}
+.history-card__heading,.history-card__foot,.history-line{display:flex;justify-content:space-between;gap:18px;align-items:center}
+.history-card__heading h2{font-family:var(--display);font-size:26px;margin:0}
+.history-card__heading time,.history-ref{color:var(--subtle);font-size:12px}
+.history-ref{overflow-wrap:anywhere;margin:8px 0 20px}
+.history-items{padding:0;margin:0;list-style:none;border-top:1px solid var(--border)}
+.history-line{padding:13px 0;border-bottom:1px solid var(--border);font-size:13px}
+.history-line strong{white-space:nowrap}.history-card__foot{margin-top:18px;font-size:13px}
+.history-card__foot strong{font-size:20px}
+@media(max-width:680px){.header-orders-link{font-size:11px;padding:4px}.history-card{padding:18px}.history-card__heading{align-items:flex-start;flex-direction:column;gap:6px}.history-card__foot{align-items:flex-start}.history-card__foot span{max-width:55%}}

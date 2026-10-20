@@ -1,4 +1,4 @@
-from fastapi import Depends, FastAPI, HTTPException, status
+from fastapi import Depends, FastAPI, HTTPException, Query, Request, Response, status
 from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy import select, text
 from sqlalchemy.exc import IntegrityError
@@ -6,7 +6,7 @@ from sqlalchemy.orm import Session
 
 from .config import get_settings
 from .database import get_db
-from .models import Order, OrderItem, Product, User
+from .models import Order, OrderItem, Product, ProductInventory, User
 from .schemas import (CreateDraftOrderRequest, LoginRequest, OrderItemResponse, OrderResponse,
                       ProductResponse, RegisterRequest, TokenResponse, UserResponse)
 from .security import create_token, get_current_user, hash_password, verify_password
@@ -18,10 +18,20 @@ app.add_middleware(CORSMiddleware, allow_origins=settings.allowed_origins, allow
                    allow_methods=['GET', 'POST'], allow_headers=['Authorization', 'Content-Type'])
 
 
+@app.middleware('http')
+async def private_response_headers(request: Request, call_next):
+    response = await call_next(request)
+    if request.url.path.startswith(('/api/v1/auth/', '/api/v1/orders')):
+        response.headers['Cache-Control'] = 'no-store'
+    response.headers['X-Content-Type-Options'] = 'nosniff'
+    return response
+
+
 def product_out(product: Product) -> ProductResponse:
     return ProductResponse(id=product.id, name=product.name, category=product.category,
                            description=product.description, price_ngn=product.price_kobo // 100,
-                           image_url=product.image_url)
+                           image_url=product.image_url,
+                           available_sizes=sorted((row.size for row in product.stock_levels if row.quantity > 0), key=int))
 
 
 def order_out(order: Order) -> OrderResponse:
@@ -92,6 +102,14 @@ def create_draft_order(body: CreateDraftOrderRequest, db: Session = Depends(get_
         Product.id.in_([item.product_id for item in body.items]), Product.is_active.is_(True))).all()}
     if len(products) != len({item.product_id for item in body.items}):
         raise HTTPException(400, 'One or more products are unavailable')
+    # A draft does not reserve inventory. Check each requested variation now,
+    # then re-check transactionally in a future confirmed-payment workflow.
+    stock = {(row.product_id, row.size): row.quantity for row in db.scalars(
+        select(ProductInventory).where(ProductInventory.product_id.in_(products))).all()}
+    unavailable = [item for item in body.items
+                   if stock.get((item.product_id, item.size), 0) < item.quantity]
+    if unavailable:
+        raise HTTPException(409, 'Requested cap size or quantity is unavailable. Refresh your bag and try again.')
     total = sum(products[item.product_id].price_kobo * item.quantity for item in body.items)
     order = Order(user_id=user.id, total_kobo=total, status='draft')
     for item in body.items:
@@ -105,9 +123,10 @@ def create_draft_order(body: CreateDraftOrderRequest, db: Session = Depends(get_
 
 
 @app.get('/api/v1/orders', response_model=list[OrderResponse])
-def my_orders(db: Session = Depends(get_db), user: User = Depends(get_current_user)):
+def my_orders(limit: int = Query(20, ge=1, le=100), offset: int = Query(0, ge=0),
+              db: Session = Depends(get_db), user: User = Depends(get_current_user)):
     return [order_out(o) for o in db.scalars(select(Order).where(Order.user_id == user.id)
-                                               .order_by(Order.created_at.desc()).limit(100)).all()]
+                    .order_by(Order.created_at.desc(), Order.id.desc()).offset(offset).limit(limit)).all()]
 
 
 @app.get('/api/v1/orders/{order_id}', response_model=OrderResponse)

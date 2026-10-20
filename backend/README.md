@@ -79,3 +79,11 @@ Tests use an isolated temporary SQLite database, never production data.
 - Connect frontend `js/app.js` to `/api/v1` and introduce login/register flows
 
 Currently only the database and API foundations are implemented. No third-party payment credentials are needed yet.
+
+## Stage 6: Inventory and order history (Ubuntu)
+
+With your existing `.venv` activated, run `python -m alembic upgrade head` **before restarting the API**. This creates `product_inventory`, preserving existing draft orders and user records. Every product/size begins with zero available stock, deliberately; enter real counts using `python -m app.inventory set premium 39 5` (substitute the verified actual count), then `python -m app.inventory show`. Seeding with `python -m app.seed` creates any missing rows but **never resets counts**.
+
+Product responses now advertise only `available_sizes` with a positive count; creating a new draft validates the quantity and size against available stock and returns HTTP `409` for unavailable selections. Drafts **do not** reserve stock and may be duplicated. The order history route accepts `GET /api/v1/orders?limit=20&offset=0`, requires a bearer token, and returns only the authenticated customer's drafts. Auth and order responses include `Cache-Control: no-store`. Stock management is an operator-only local CLI, not a publicly exposed API.
+
+In the frontend, signed-in customers can visit `orders.html`. No real payment, delivery, shipment, or fulfillment is performed. Full operator instructions are in the repository root `STAGE6_UBUNTU.md`.

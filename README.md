@@ -1,6 +1,6 @@
 # FÌLÀ by Deji
 
-A polished, responsive, accessible frontend implementation based on the supplied Figma designs. Built with semantic **HTML5, CSS3, vanilla JavaScript**, and no build dependencies. The original FÌLÀ logo is exported directly from its Figma layer as `assets/fila-logo.png`; a matching SVG reconstruction remains available as a fallback.
+A polished, responsive, accessible frontend implementation based on the supplied Figma designs. Built with semantic **HTML5, CSS3, vanilla JavaScript**, and no build dependencies. The FÌLÀ logo follows the original Figma typography and black/yellow/charcoal signature stripes.
 
 ## Pages
 
@@ -14,9 +14,9 @@ A polished, responsive, accessible frontend implementation based on the supplied
 
 ## Product images
 
-Real cap imagery comes from the original Figma design, using assets under `/assets`: `hero.png`, `ceremonial.jpg`, `classic.jpg`, `premium.jpg`. The exact Figma logo layer is `fila-logo.png`. The original Figma design is at: https://www.figma.com/design/px6gx3buqM8Uj2pqgGByXB/fila-by-deji?node-id=0-1
+Real cap imagery comes from the original Figma design, using assets under `/assets`: `hero.png`, `ceremonial.png`, `classic.png`, `premium.png`. The original Figma design is at: https://www.figma.com/design/px6gx3buqM8Uj2pqgGByXB/fila-by-deji?node-id=0-1
 
-If the assets are not present yet, run `download-assets.ps1` on Windows or `download-assets.sh` on Unix. The scripts download **the original Figma asset URLs** and check whether each file is a valid JPEG. These signed links may expire; in that case export the images anew from the original Figma document. The UI includes elegant fallback panels to avoid broken-image icons while assets are pending; never deploy for a client without the original photos.
+If the assets are not present yet, run `download-assets.ps1` on Windows or `download-assets.sh` on Unix. The scripts download **the original Figma asset URLs** and check whether each file is a valid PNG. These signed links may expire; in that case export the images anew from the original Figma document. The UI includes elegant fallback panels to avoid broken-image icons while assets are pending; never deploy for a client without the original photos.
 
 ## Run locally
 
@@ -35,3 +35,7 @@ This is **a frontend preview**: there is no server-side authentication, inventor
 ## Accessibility
 
 Semantic landmarks, descriptive alt text, focus indicators, reduced-motion support, keyboard navigation, responsive grids, and accessible field labels.
+
+## Stage 6 — Stock by size and customer draft history
+
+The backend now includes a zero-initialized inventory table and operator-only CLI to set **real, verified** stock, a new additive Alembic migration, backend stock checks for draft orders, pagination for customer history, and the authenticated `orders.html` page. Drafts remain unpaid and do **not** reserve stock. See [STAGE6_UBUNTU.md](STAGE6_UBUNTU.md) for Ubuntu update and test commands.

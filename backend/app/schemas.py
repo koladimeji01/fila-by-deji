@@ -44,7 +44,8 @@ class ProductResponse(BaseModel):
     description: str
     price_ngn: int
     image_url: str
-    available_sizes: list[str] = ['32', '35', '39', '41']
+    # Only sizes with positive stock are advertised as available.
+    available_sizes: list[str] = Field(default_factory=list)
 
 
 class OrderItemInput(BaseModel):
