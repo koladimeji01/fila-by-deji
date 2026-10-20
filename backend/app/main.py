@@ -1,3 +1,4 @@
+from contextlib import asynccontextmanager
 from fastapi import Depends, FastAPI, HTTPException, Query, Request, Response, status
 from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy import select, text, update
@@ -14,7 +15,21 @@ from .security import create_token, get_current_admin, get_current_user, hash_pa
 from .reservations import aware, cancel_order, expire_holds, reserve_order
 
 settings = get_settings()
-app = FastAPI(title='FÌLÀ by Deji API', version='0.1.0', docs_url='/docs' if settings.app_env != 'production' else None,
+
+
+@asynccontextmanager
+async def lifespan(application: FastAPI):
+    # Fail before accepting requests when a developer forgets Alembic upgrades.
+    # Tests use isolated SQLAlchemy-created schemas; migration history is not used there.
+    if settings.app_env != 'test':
+        from .doctor import check_readiness
+        errors = check_readiness()
+        if errors:
+            raise RuntimeError('FÌLÀ backend not ready: ' + ' | '.join(errors))
+    yield
+
+
+app = FastAPI(title='FÌLÀ by Deji API', version='0.1.1', lifespan=lifespan, docs_url='/docs' if settings.app_env != 'production' else None,
               redoc_url=None)
 app.middleware('http')(limit_request)
 
@@ -22,7 +37,7 @@ app.middleware('http')(limit_request)
 @app.middleware('http')
 async def private_response_headers(request: Request, call_next):
     response = await call_next(request)
-    if request.url.path.startswith(('/api/v1/auth/', '/api/v1/orders', '/api/v1/admin')):
+    if request.url.path.startswith(('/api/v1/auth/', '/api/v1/orders', '/api/v1/admin', '/api/v1/products')):
         response.headers['Cache-Control'] = 'no-store'
     response.headers['X-Content-Type-Options'] = 'nosniff'
     response.headers['X-Frame-Options'] = 'DENY'

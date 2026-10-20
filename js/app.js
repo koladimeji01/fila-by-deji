@@ -9,7 +9,8 @@ const AUTH_KEY = 'fila_customer_access_token_v1';
 function token(){ try { return sessionStorage.getItem(AUTH_KEY) || ''; } catch { return ''; } }
 function storeToken(value){ try { if(value) sessionStorage.setItem(AUTH_KEY,value); else sessionStorage.removeItem(AUTH_KEY); } catch { /* session-only fallback */ } }
 function errorText(response, payload){
-  if (response.status === 401) return 'Please sign in again.';
+  // Return actionable authentication errors, including incorrect login credentials.
+  if (response.status === 401 && !payload?.detail) return 'Authentication required. Please sign in again.';
   if (typeof payload?.detail === 'string') return payload.detail;
   if (Array.isArray(payload?.detail)) return payload.detail.map(e=>e.msg||'Invalid input').join('; ');
   return `Request failed (${response.status}).`;
@@ -22,7 +23,7 @@ async function apiRequest(path,{method='GET',body,authorize=false}={}){
   try{
     const response=await fetch(`${API_BASE}${path}`,{method,headers,body:body===undefined?undefined:JSON.stringify(body),signal:controller.signal,credentials:'omit'});
     const data=await response.json().catch(()=>({}));
-    if(!response.ok){if(response.status===401&&authorize)storeToken('');throw new Error(errorText(response,data));}
+    if(!response.ok){if(response.status===401&&authorize){storeToken('');updateAuthNavigation();}throw new Error(errorText(response,data));}
     return data;
   }catch(err){if(err.name==='AbortError')throw new Error('The API took too long to respond.');if(err instanceof TypeError)throw new Error('Cannot reach FastAPI. Check that it is running on port 8000.');throw err;
   }finally{clearTimeout(timer)}
@@ -47,7 +48,7 @@ function showCatalogError(message){
 function updateAuthNavigation(){
   const controls=document.querySelector('.header-controls');if(!controls)return;
   const link=document.createElement(token()?'button':'a');link.className='header-auth-link';
-  if(token()){link.type='button';link.textContent='Sign out';link.addEventListener('click',()=>{storeToken('');updateAuthNavigation();toast('Signed out of this browser session.');});}
+  if(token()){link.type='button';link.textContent='Sign out';link.addEventListener('click',()=>{storeToken('');if(page==='orders'){document.getElementById('orders-list')?.replaceChildren();location.replace('login.html?next=orders.html');return;}updateAuthNavigation();toast('Signed out of this browser session.');});}
   else{link.href='login.html';link.textContent='Sign in';}
   controls.querySelector('.header-auth-link')?.remove();
   controls.querySelector('.header-orders-link')?.remove();
@@ -66,7 +67,7 @@ async function initAuth(){
  const opposite=$('auth-switch');if(opposite)opposite.href=`${login?'register':'login'}.html?next=${encodeURIComponent(next)}`;
  form.addEventListener('submit',async event=>{
    event.preventDefault();if(!form.reportValidity())return;
-   submit.disabled=true; feedback.textContent='Connecting securely to the local API…';feedback.className='form-feedback';
+   submit.disabled=true; feedback.textContent='Signing you in…';feedback.className='form-feedback';
    const email=$('auth-email').value.trim();const password=$('auth-password').value;
    try{
      if(!login){await apiRequest('/auth/register',{method:'POST',body:{name:$('auth-name').value.trim(),email,password}});}
@@ -84,7 +85,7 @@ function initDraftCheckout(){
  btn.addEventListener('click',async()=>{
    if(justSaved)return;
    const entries=Object.entries(cart).filter(([key])=>productForCart(key));
-   if(!entries.length){feedback.textContent='Your shopping bag is empty.';return;}
+   if(!entries.length){feedback.textContent='Your shopping bag is empty.';return;}if(entries.some(([key])=>!productForCart(key).product.availableSizes.includes(productForCart(key).size))){feedback.textContent='A cap size in your bag is unavailable. Return to your bag and remove it.';return;}
    if(entries.some(([,n])=>n>10)){feedback.textContent='Reduce each cap/size quantity to 10 or fewer before saving a draft.';return;}
    if(!token()){location.assign('login.html?next=checkout.html');return;}
    btn.disabled=true;feedback.textContent='Saving your draft order…';
@@ -109,7 +110,7 @@ let cart=readCart(),quantity=1,selectedSize=null,filter='all',toastId;
 
 function productById(id){return PRODUCTS.find(p=>p.id===id)}
 function productForCart(key){const [id,size,...rest]=key.split(':');if(rest.length||!SIZES.includes(size))return null;const product=productById(id);return product?{product,size}:null}
-function readCart(){try{const data=JSON.parse(localStorage.getItem(CART_KEY)||'{}');if(!data||typeof data!=='object'||Array.isArray(data))return {};return Object.fromEntries(Object.entries(data).filter(([key,n])=>/^[a-z0-9_-]{1,60}:(32|35|39|41)$/.test(key)&&Number.isInteger(n)&&n>0&&n<=99))}catch{return {}}}
+function readCart(){try{const data=JSON.parse(localStorage.getItem(CART_KEY)||'{}');if(!data||typeof data!=='object'||Array.isArray(data))return {};return Object.fromEntries(Object.entries(data).filter(([key,n])=>/^[a-z0-9_-]{1,60}:(32|35|39|41)$/.test(key)&&Number.isInteger(n)&&n>0&&n<=10))}catch{return {}}}
 function saveCart(){try{localStorage.setItem(CART_KEY,JSON.stringify(cart))}catch{}updateBadges()}
 function countItems(){return Object.values(cart).reduce((s,n)=>s+n,0)}
 function updateBadges(){document.querySelectorAll('[data-cart-count]').forEach(el=>{const n=countItems();el.textContent=n>99?'99+':String(n)})}
@@ -123,15 +124,15 @@ function initNavigation(){const toggle=$('menu-toggle'),nav=$('site-navigation')
  document.querySelectorAll('[data-nav]').forEach(a=>{if(a.dataset.nav===page)a.setAttribute('aria-current','page')});$('year')&&($('year').textContent=String(new Date().getFullYear()));document.querySelectorAll('img:not(.product-card__media img)').forEach(img=>img.addEventListener('error',()=>img.classList.add('image-unavailable'),{once:true}))}
 function renderCollection(){const q=($('search-input')?.value||'').trim().toLowerCase();const data=PRODUCTS.filter(p=>(filter==='all'||p.id===filter)&&`${p.name} ${p.category} ${p.description}`.toLowerCase().includes(q));renderGrid('collection-products',data);$('collection-empty').hidden=data.length>0;$('results-count').textContent=`${data.length} ${data.length===1?'style':'styles'}`;document.querySelectorAll('[data-filter]').forEach(b=>{const on=b.dataset.filter===filter;b.classList.toggle('is-selected',on);b.setAttribute('aria-pressed',String(on))})}
 function initCollection(){$('search-input')?.addEventListener('input',renderCollection);document.querySelectorAll('[data-filter]').forEach(b=>b.addEventListener('click',()=>{filter=b.dataset.filter;renderCollection()}));$('clear-filters')?.addEventListener('click',()=>{filter='all';$('search-input').value='';renderCollection()});renderCollection()}
-function initDetails(){const id=new URLSearchParams(location.search).get('product');const product=productById(id)||PRODUCTS[2];$('product-title').textContent=product.name;$('product-description').textContent=product.description;$('product-price').textContent=money(product.price);$('product-category').textContent=`${product.category.toUpperCase()} COLLECTION`;$('crumb-product').textContent=product.name;document.title=`${product.name} | FÌLÀ by Deji`;const photo=$('product-photo');photo.src=product.image;photo.alt=product.name;
+function initDetails(){const id=new URLSearchParams(location.search).get('product');const product=productById(id);if(!product){showCatalogError('This cap could not be found. Please return to the collection.');document.querySelector('.product-layout')?.remove();document.getElementById('related-products')?.replaceChildren();return;}$('product-title').textContent=product.name;$('product-description').textContent=product.description;$('product-price').textContent=money(product.price);$('product-category').textContent=`${product.category.toUpperCase()} COLLECTION`;$('crumb-product').textContent=product.name;document.title=`${product.name} | FÌLÀ by Deji`;const photo=$('product-photo');photo.src=product.image;photo.alt=product.name;
  const options=SIZES.map(size=>{const btn=document.createElement('button');btn.type='button';btn.className='size-option';btn.textContent=size;btn.disabled=!product.availableSizes.includes(size);btn.setAttribute('aria-pressed','false');btn.setAttribute('aria-label',`Choose cap size ${size}${btn.disabled?' — out of stock':''}`);btn.addEventListener('click',()=>{selectedSize=size;$('selected-size').textContent=`Size ${size} selected`;$('size-error').hidden=true;document.querySelectorAll('.size-option').forEach(b=>b.setAttribute('aria-pressed',String(b===btn)))});return btn});$('size-options').replaceChildren(...options);
  if(!product.availableSizes.length){$('selected-size').textContent='This cap is currently out of stock.';$('add-to-bag').disabled=true;}
- const updateQty=delta=>{quantity=Math.min(10,Math.max(1,quantity+delta));$('quantity-display').textContent=String(quantity)};$('minus-quantity').addEventListener('click',()=>updateQty(-1));$('plus-quantity').addEventListener('click',()=>updateQty(1));$('add-to-bag').addEventListener('click',()=>{if(!selectedSize){$('size-error').hidden=false;options[0].focus();return}const key=`${product.id}:${selectedSize}`;cart[key]=Math.min(10,(cart[key]||0)+quantity);saveCart();toast(`${quantity} × ${product.name} added to your bag`);$('add-to-bag').textContent='Added to bag ✓';setTimeout(()=>{const btn=$('add-to-bag');if(btn)btn.innerHTML='Add to bag'},1700)});renderGrid('related-products',PRODUCTS.filter(p=>p.id!==product.id))}
+ const updateQty=delta=>{quantity=Math.min(10,Math.max(1,quantity+delta));$('quantity-display').textContent=String(quantity)};$('minus-quantity').addEventListener('click',()=>updateQty(-1));$('plus-quantity').addEventListener('click',()=>updateQty(1));$('add-to-bag').addEventListener('click',()=>{if(!selectedSize){$('size-error').hidden=false;options.find(option=>!option.disabled)?.focus();return}const key=`${product.id}:${selectedSize}`;const previous=cart[key]||0;cart[key]=Math.min(10,previous+quantity);saveCart();const added=cart[key]-previous;toast(added?`${added} × ${product.name} added to your bag`:'Maximum quantity of 10 reached for this size.');$('add-to-bag').textContent='Added to bag ✓';setTimeout(()=>{const btn=$('add-to-bag');if(btn)btn.innerHTML='Add to bag'},1700)});renderGrid('related-products',PRODUCTS.filter(p=>p.id!==product.id))}
 function updateCart(key,delta){const num=(cart[key]||0)+delta;if(num<=0)delete cart[key];else cart[key]=Math.min(num,10);saveCart();renderBag();renderCheckout()}
-function renderBag(){const list=$('bag-items');if(!list)return;list.replaceChildren();const items=Object.entries(cart);$('bag-items-count').textContent=`${countItems()} ${countItems()===1?'item':'items'}`;$('bag-empty').hidden=items.length>0;
+function renderBag(){const list=$('bag-items');if(!list)return;list.replaceChildren();const items=Object.entries(cart).filter(([key])=>productForCart(key));const visibleCount=items.reduce((sum,[,qty])=>sum+qty,0);$('bag-items-count').textContent=`${visibleCount} ${visibleCount===1?'item':'items'}`;$('bag-empty').hidden=items.length>0;
  for(const [key,qty] of items){const selection=productForCart(key);if(!selection)continue;const {product:p,size}=selection;const row=document.createElement('article');row.className='bag-line';const img=makeImage(p.image,p.name);const main=document.createElement('div');const top=document.createElement('div');top.className='bag-line__top';const info=document.createElement('div');const h=document.createElement('h3');h.textContent=p.name;const sizeP=document.createElement('p');sizeP.textContent=`Size ${size} · ${p.category}`;info.append(h,sizeP);const price=document.createElement('strong');price.className='bag-line__price';price.textContent=money(p.price*qty);top.append(info,price);
  const bottom=document.createElement('div');bottom.className='bag-line__bottom';const controls=document.createElement('div');controls.className='mini-quantity';const minus=document.createElement('button');minus.type='button';minus.textContent='−';minus.setAttribute('aria-label',`Remove one ${p.name} size ${size}`);minus.addEventListener('click',()=>updateCart(key,-1));const number=document.createElement('span');number.textContent=qty;const plus=document.createElement('button');plus.type='button';plus.textContent='+';plus.setAttribute('aria-label',`Add one ${p.name} size ${size}`);plus.addEventListener('click',()=>updateCart(key,1));controls.append(minus,number,plus);const remove=document.createElement('button');remove.className='remove-line';remove.type='button';remove.textContent='Remove';remove.addEventListener('click',()=>{delete cart[key];saveCart();renderBag()});bottom.append(controls,remove);main.append(top,bottom);row.append(img,main);list.append(row)}
- const total=Object.entries(cart).reduce((sum,[key,q])=>sum+(productForCart(key)?.product.price||0)*q,0);$('summary-subtotal').textContent=money(total);$('summary-total').textContent=money(total);const checkout=$('checkout-link');if(checkout){checkout.setAttribute('aria-disabled',String(items.length===0));checkout.onclick=e=>{if(!countItems())e.preventDefault()}}}
+ const total=Object.entries(cart).reduce((sum,[key,q])=>sum+(productForCart(key)?.product.price||0)*q,0);$('summary-subtotal').textContent=money(total);$('summary-total').textContent=money(total);const checkout=$('checkout-link');if(checkout){const unavailable=items.some(([key])=>{const item=productForCart(key);return !item||!item.product.availableSizes.includes(item.size)});checkout.setAttribute('aria-disabled',String(items.length===0||unavailable));checkout.onclick=e=>{if(!items.length||unavailable){e.preventDefault();toast('Remove unavailable caps or sizes before checking out.')}};const notice=$('bag-availability-notice');if(notice){notice.hidden=!unavailable;notice.textContent=unavailable?'Some sizes in your bag are unavailable. Remove them to continue.':'';}}}
 function renderCheckout(){const node=$('checkout-items');if(!node)return;node.replaceChildren();let total=0;for(const [key,qty] of Object.entries(cart)){const sel=productForCart(key);if(!sel)continue;total+=sel.product.price*qty;const line=document.createElement('div');line.className='checkout-line';const text=document.createElement('span');text.textContent=`${sel.product.name} × ${qty}`;const small=document.createElement('small');small.textContent=`Size ${sel.size}`;text.append(small);const price=document.createElement('strong');price.textContent=money(sel.product.price*qty);line.append(text,price);node.append(line)}if(!node.childElementCount){const empty=document.createElement('p');empty.textContent='No caps selected yet.';node.append(empty)}$('checkout-subtotal').textContent=money(total)}
 async function copyText(text){if(navigator.clipboard?.writeText){await navigator.clipboard.writeText(text);return}const el=document.createElement('textarea');el.value=text;el.style.position='fixed';el.style.opacity='0';document.body.append(el);el.select();const success=document.execCommand('copy');el.remove();if(!success)throw Error('clipboard unavailable')}
 function renderOrderItem(item){
@@ -162,8 +163,8 @@ async function initOrders(){
    feedback.textContent=action==='reserve'?'Checking available stock…':'Cancelling your selection…';
    try{
      const changed=await apiRequest(`/orders/${encodeURIComponent(order.id)}/${action}`,{method:'POST',authorize:true});
-     feedback.textContent=action==='reserve'?'Stock held for 15 minutes. This is not an accepted or paid order.':'Selection cancelled. Reserved stock has been released.';
      list.replaceChildren();offset=0;await load();
+     feedback.textContent=action==='reserve'?'Stock held for 15 minutes. This is not an accepted or paid order.':'Selection cancelled. Reserved stock has been released.';
      toast(`Order ${changed.status}. No payment taken.`);
    }catch(err){feedback.textContent=`Unable to ${action}: ${err.message}`;button.disabled=false;}
  };
