@@ -6,6 +6,9 @@ on:
     paths:
       - 'backend/**'
       - 'js/**'
+      - 'scripts/**'
+      - 'vercel.json'
+      - 'package.json'
       - 'css/**'
       - '*.html'
       - 'assets/**'
@@ -14,6 +17,9 @@ on:
     paths:
       - 'backend/**'
       - 'js/**'
+      - 'scripts/**'
+      - 'vercel.json'
+      - 'package.json'
       - 'css/**'
       - '*.html'
       - 'assets/**'
@@ -40,3 +46,11 @@ jobs:
         run: python -m pytest -q
       - name: JavaScript syntax check
         run: node --check js/app.js
+      - name: Verify static Vercel storefront build
+        run: |
+          npm run build
+          test -f dist/index.html
+          test -f dist/css/style.css
+          test -f dist/assets/hero.png
+          test ! -e dist/backend
+          test ! -e dist/.env

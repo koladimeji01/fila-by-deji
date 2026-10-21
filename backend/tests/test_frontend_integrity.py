@@ -42,3 +42,18 @@ def test_contact_uses_real_whatsapp_and_email_links_without_product_photo():
     assert 'name="channel" value="whatsapp"' in page
     assert 'https://wa.me/234806722794?text=' in script
     assert 'mailto:filabydeji@gmail.com?subject=' in script
+
+
+def test_vercel_deploys_only_storefront_assets():
+    import json
+    config = json.loads((ROOT / 'vercel.json').read_text())
+    assert config['framework'] is None
+    assert config['outputDirectory'] == 'dist'
+    assert config['buildCommand'] == 'node scripts/build-storefront.cjs'
+    builder = (ROOT / 'scripts/build-storefront.cjs').read_text()
+    assert 'backend/' not in builder
+    assert 'dist' in builder and 'index.html' in builder
+    script = (ROOT / 'js/app.js').read_text()
+    assert 'https://fila-by-deji-api.onrender.com/api/v1' in script
+    assert "IS_LOCAL_PREVIEW" in script
+    assert 'http://127.0.0.1:8000/api/v1' in script

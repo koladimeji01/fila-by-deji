@@ -4,7 +4,11 @@
 // This is a frontend prototype, not a verified inventory or payment system.
 // Products and prices MUST come from the FastAPI database. No hardcoded catalog.
 let PRODUCTS = [];
-const API_BASE = (window.FILA_API_BASE_URL || 'http://127.0.0.1:8000/api/v1').replace(/\/$/, '');
+// The unchanged Ubuntu development site uses local FastAPI; HTTPS storefronts use Render.
+const IS_LOCAL_PREVIEW = ['localhost', '127.0.0.1', '::1'].includes(window.location.hostname);
+const API_BASE = (window.FILA_API_BASE_URL ||
+  (IS_LOCAL_PREVIEW ? 'http://127.0.0.1:8000/api/v1' : 'https://fila-by-deji-api.onrender.com/api/v1')
+).replace(/\/$/, '');
 const AUTH_KEY = 'fila_customer_access_token_v1';
 function token(){ try { return sessionStorage.getItem(AUTH_KEY) || ''; } catch { return ''; } }
 function storeToken(value){ try { if(value) sessionStorage.setItem(AUTH_KEY,value); else sessionStorage.removeItem(AUTH_KEY); } catch { /* session-only fallback */ } }
@@ -25,7 +29,7 @@ async function apiRequest(path,{method='GET',body,authorize=false}={}){
     const data=await response.json().catch(()=>({}));
     if(!response.ok){if(response.status===401&&authorize){storeToken('');updateAuthNavigation();}throw new Error(errorText(response,data));}
     return data;
-  }catch(err){if(err.name==='AbortError')throw new Error('The API took too long to respond.');if(err instanceof TypeError)throw new Error('Cannot reach FastAPI. Check that it is running on port 8000.');throw err;
+  }catch(err){if(err.name==='AbortError')throw new Error('The API took too long to respond.');if(err instanceof TypeError)throw new Error('Cannot reach the FÌLÀ API. Check your connection and try again.');throw err;
   }finally{clearTimeout(timer)}
 }
 async function loadProducts(){

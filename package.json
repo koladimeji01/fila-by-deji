@@ -1,0 +1,9 @@
+{
+  "name": "fila-by-deji-storefront",
+  "version": "1.0.0",
+  "private": true,
+  "scripts": {
+    "build": "node scripts/build-storefront.cjs",
+    "test:site": "node scripts/build-storefront.cjs && node --check js/app.js"
+  }
+}
