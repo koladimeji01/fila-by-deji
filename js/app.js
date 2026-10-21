@@ -23,14 +23,39 @@ async function apiRequest(path,{method='GET',body,authorize=false}={}){
   const headers={'Accept':'application/json'};
   if(body!==undefined) headers['Content-Type']='application/json';
   if(authorize){const t=token();if(!t)throw new Error('Sign in to save a draft order.');headers.Authorization=`Bearer ${t}`;}
-  const controller=new AbortController(); const timer=setTimeout(()=>controller.abort(),12000);
-  try{
-    const response=await fetch(`${API_BASE}${path}`,{method,headers,body:body===undefined?undefined:JSON.stringify(body),signal:controller.signal,credentials:'omit'});
-    const data=await response.json().catch(()=>({}));
-    if(!response.ok){if(response.status===401&&authorize){storeToken('');updateAuthNavigation();}throw new Error(errorText(response,data));}
-    return data;
-  }catch(err){if(err.name==='AbortError')throw new Error('The API took too long to respond.');if(err instanceof TypeError)throw new Error('Cannot reach the FÌLÀ API. Check your connection and try again.');throw err;
-  }finally{clearTimeout(timer)}
+  // Render's free instances can take time to wake up. Only retry safe GETs;
+  // never replay registration, login, draft, reservation or inventory writes.
+  const attempts=method==='GET'?2:1;
+  for(let attempt=0;attempt<attempts;attempt++){
+    const controller=new AbortController();
+    const timeoutMs=method==='GET'&&!IS_LOCAL_PREVIEW?(attempt===0?65000:20000):15000;
+    const timer=setTimeout(()=>controller.abort(),timeoutMs);
+    try{
+      const response=await fetch(`${API_BASE}${path}`,{
+        method,headers,body:body===undefined?undefined:JSON.stringify(body),
+        signal:controller.signal,credentials:'omit'
+      });
+      const data=await response.json().catch(()=>({}));
+      if(!response.ok){
+        if(method==='GET'&&response.status>=500&&attempt+1<attempts){
+          await new Promise(resolve=>setTimeout(resolve,1500));
+          continue;
+        }
+        if(response.status===401&&authorize){storeToken('');updateAuthNavigation();}
+        throw new Error(errorText(response,data));
+      }
+      return data;
+    }catch(err){
+      const transient=err?.name==='AbortError'||err instanceof TypeError;
+      if(method==='GET'&&transient&&attempt+1<attempts){
+        await new Promise(resolve=>setTimeout(resolve,1500));
+        continue;
+      }
+      if(err?.name==='AbortError')throw new Error('The FÌLÀ API is taking longer than expected to respond. Please try again.');
+      if(err instanceof TypeError)throw new Error('Cannot reach the FÌLÀ API. Check your connection and try again.');
+      throw err;
+    }finally{clearTimeout(timer);}
+  }
 }
 async function loadProducts(){
   const data=await apiRequest('/products');
@@ -43,9 +68,20 @@ async function loadProducts(){
 }
 function showCatalogError(message){
   const main=document.querySelector('main');if(!main)return;
-  const el=document.createElement('div');el.className='api-alert wrap';el.setAttribute('role','alert');
+  // The home page has an overlay navigation; messages before the hero obscure it.
+  // Show catalog problems next to the actual product grid instead.
+  const grid=page==='home'?document.getElementById('home-products'):
+             page==='collection'?document.getElementById('collection-products'):null;
+  const el=document.createElement('div');
+  el.className=grid?'api-alert':'api-alert wrap';
+  el.setAttribute('role','alert');
   el.textContent=`Product catalog unavailable: ${message}`;
-  main.prepend(el);
+  const retry=document.createElement('button');
+  retry.type='button';retry.className='button button--dark';
+  retry.textContent='Try again';
+  retry.addEventListener('click',()=>window.location.reload());
+  el.append(document.createElement('br'),retry);
+  if(grid)grid.before(el);else main.prepend(el);
   document.getElementById('checkout-subtotal')?.replaceChildren(document.createTextNode('Unavailable'));
   const submit=document.getElementById('save-draft-order');if(submit)submit.disabled=true;
 }

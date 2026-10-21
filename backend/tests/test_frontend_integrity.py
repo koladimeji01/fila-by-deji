@@ -57,3 +57,15 @@ def test_vercel_deploys_only_storefront_assets():
     assert 'https://fila-by-deji-api.onrender.com/api/v1' in script
     assert "IS_LOCAL_PREVIEW" in script
     assert 'http://127.0.0.1:8000/api/v1' in script
+
+
+def test_catalog_network_retries_only_safe_reads_and_never_overlays_home_navigation():
+    script = (ROOT / 'js/app.js').read_text()
+    css = (ROOT / 'css/style.css').read_text()
+    assert "const attempts=method==='GET'?2:1" in script
+    assert "attempt===0?65000:20000" in script
+    assert "response.status>=500" in script
+    assert "page==='home'?document.getElementById('home-products')" in script
+    assert "if(grid)grid.before(el);else main.prepend(el)" in script
+    assert "retry.textContent='Try again'" in script
+    assert '.api-alert .button' in css
