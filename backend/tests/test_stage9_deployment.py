@@ -53,6 +53,27 @@ def test_prod_without_encrypted_redis_is_rejected():
         secure(rate_limit_redis_url='redis://redis.example.com/0')
 
 
+def test_private_render_redis_requires_explicit_opt_in():
+    internal = 'redis://red-dbc9n8l9fdbs73capkgg:6379'
+    with pytest.raises(ValidationError):
+        secure(rate_limit_redis_url=internal)
+    assert secure(rate_limit_redis_url=internal,
+                  rate_limit_allow_render_private_redis=True).app_env == 'production'
+
+
+@pytest.mark.parametrize('url', [
+    'redis://example.com:6379',
+    'redis://redis.example.com:6379',
+    'redis://red-example.example.com:6379',
+    'redis://red-abc123:6380',
+    'redis://red-abc123:6379/0?ssl=false',
+    'redis://red-abc123:6379@attacker.example.com:6379',
+])
+def test_private_redis_opt_in_never_allows_external_or_malformed_url(url):
+    with pytest.raises(ValidationError):
+        secure(rate_limit_redis_url=url, rate_limit_allow_render_private_redis=True)
+
+
 def test_docker_image_excludes_secrets_and_does_not_run_automatic_migration():
     dockerfile = (ROOT / 'backend/Dockerfile').read_text()
     ignore = (ROOT / 'backend/.dockerignore').read_text()

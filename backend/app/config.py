@@ -1,8 +1,30 @@
 from functools import lru_cache
+import re
 from typing import Literal
 from urllib.parse import parse_qs, urlsplit
 from pydantic import model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
+
+
+def is_render_private_redis_url(url: str) -> bool:
+    """Permit plaintext Redis only for Render's private Key Value DNS and port.
+
+    The web service and Key Value must share a Render workspace and region.
+    Never allow an arbitrary redis:// URL in production.
+    """
+    try:
+        parsed = urlsplit(url)
+        return (
+            parsed.scheme == 'redis'
+            and parsed.hostname is not None
+            and re.fullmatch(r'red-[a-z0-9]{6,40}', parsed.hostname) is not None
+            and parsed.port == 6379
+            and parsed.path in ('', '/', '/0')
+            and not parsed.query
+            and not parsed.fragment
+        )
+    except ValueError:
+        return False
 
 
 class Settings(BaseSettings):
@@ -12,7 +34,8 @@ class Settings(BaseSettings):
     jwt_secret_key: str  # no default secret, fails closed if missing
     access_token_minutes: int = 30
     cors_origins: str = 'http://127.0.0.1:5500,http://localhost:5500'
-    rate_limit_redis_url: str = ''  # Required in production, use rediss:// TLS
+    rate_limit_redis_url: str = ''  # Required in production
+    rate_limit_allow_render_private_redis: bool = False  # Explicit opt-in for Render private-network Redis
 
     @model_validator(mode='after')
     def validate_security(self):
@@ -24,8 +47,10 @@ class Settings(BaseSettings):
         if any('*' in origin for origin in origins):
             raise ValueError('Wildcard CORS origins are forbidden')
         if self.app_env == 'production':
-            if not self.rate_limit_redis_url.startswith('rediss://'):
-                raise ValueError('Production requires RATE_LIMIT_REDIS_URL with rediss:// TLS')
+            if not (self.rate_limit_redis_url.startswith('rediss://') or
+                    (self.rate_limit_allow_render_private_redis and
+                     is_render_private_redis_url(self.rate_limit_redis_url))):
+                raise ValueError('Production requires rediss:// TLS, or an explicitly allowed Render private redis:// hostname')
             if not self.database_url.startswith('postgresql+psycopg://'):
                 raise ValueError('Production requires a PostgreSQL URL using the psycopg driver (postgresql+psycopg://)')
             db_parts = urlsplit(self.database_url)

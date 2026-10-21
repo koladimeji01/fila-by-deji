@@ -32,7 +32,7 @@ A **draft** does not reserve stock. A **reservation** reduces available per-size
 ## Stage 8 security and operations
 
 - `python -m app.doctor` checks DB connectivity, Alembic revision (`0003_holds`), required tables/columns, plus Redis connectivity in production. It is **read-only** and refuses mismatched schemas.
-- The API rate-limits sensitive POST/PUT routes by source IP, returning `429` and a `Retry-After` header. Local development uses an in-process counter; **production requires an external Redis over TLS** via `RATE_LIMIT_REDIS_URL=rediss://...` for cross-worker counters. If Redis fails, protected endpoints fail closed with `503`.
+- The API rate-limits sensitive POST/PUT routes by source IP, returning `429` and a `Retry-After` header. Local development uses an in-process counter; **production requires shared Redis**, either via a TLS `rediss://` URL or Render's **private-network** `redis://red-...:6379` URL with `RATE_LIMIT_ALLOW_RENDER_PRIVATE_REDIS=true` explicitly enabled. The private option must only be used when Render's API and Key Value share a workspace and region. If Redis fails, protected endpoints fail closed with `503`.
 - CORS is restricted to configured origins, including the new rate-limit responses. Auth/order/admin APIs use `Cache-Control: no-store`; headers also include `nosniff`, `DENY` frames, and `no-referrer`.
 - `scripts/sweep-expired.sh` can be run by Ubuntu cron every minute; a production deployment must provide an **independent** hosted scheduler and monitoring. Expiration also occurs lazily during relevant API requests.
 - `APP_ENV=production` requires PostgreSQL with psycopg, HTTPS frontend CORS origins, a 32+-character JWT secret and shared TLS Redis. Production API documentation is off.
@@ -43,4 +43,4 @@ This is a **pre-deployment hardening increment**, not production-readiness certi
 
 ## Stage 9 — Deployment preparations
 
-A non-root `Dockerfile`, secret-excluding `.dockerignore`, protected production entrypoint (`scripts/start-api.sh`), and CI workflow are now included. Production configuration refuses database URLs without PostgreSQL TLS, Redis URLs without TLS, wildcard CORS and malformed/non-HTTPS frontend origins. No production services have been provisioned. Read [Stage 9 Ubuntu guide](../STAGE9_UBUNTU.md) before deploying. Do not use the Dockerfile to accept real payments until the launch blockers are addressed.
+A non-root `Dockerfile`, secret-excluding `.dockerignore`, protected production entrypoint (`scripts/start-api.sh`), and CI workflow are now included. Production configuration refuses database URLs without PostgreSQL TLS, public Redis URLs without TLS, wildcard CORS and malformed/non-HTTPS frontend origins. No production services have been provisioned. Read [Stage 9 Ubuntu guide](../STAGE9_UBUNTU.md) before deploying. Do not use the Dockerfile to accept real payments until the launch blockers are addressed.
