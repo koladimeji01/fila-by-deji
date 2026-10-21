@@ -98,7 +98,7 @@ function updateAuthNavigation(){
   }
   controls.prepend(link);
 }
-function safeNext(){const next=new URLSearchParams(location.search).get('next');return ['checkout.html','cart.html','index.html','collection.html','orders.html'].includes(next)?next:'checkout.html';}
+function safeNext(){const next=new URLSearchParams(location.search).get('next');return ['checkout.html','cart.html','index.html','collection.html','orders.html'].includes(next)?next:'index.html';}
 async function initAuth(){
  const form=$('customer-auth-form');if(!form)return;
  const feedback=$('auth-feedback'),submit=$('auth-submit');
