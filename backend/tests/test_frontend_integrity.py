@@ -198,7 +198,7 @@ def test_indicative_preview_prices_match_existing_card_format_without_becoming_s
     stylesheet=(ROOT / 'css/style.css').read_text()
     html=(ROOT / 'collection.html').read_text()
     for identifier in ('gobi-ivory','gobi-earth','fila-burgundy','fila-navy'):
-        assert re.search(r"\\{id:'"+identifier+r"'.*?,price:10000\\}",script)
+        assert re.search(r"\{id:'"+identifier+r"'.*?,price:10000\}",script)
     assert "price.textContent=money(item.price)" in script
     assert "card.href=url;card.target='_blank'" in script
     assert "final price and availability to be confirmed" in script
