@@ -215,15 +215,3 @@ img.image-unavailable{opacity:0!important}.product-card__media:has(img.image-una
   .bag-line__top{gap:8px;flex-wrap:wrap}
   .bag-line__bottom{gap:8px}
 }
-
-/* Original FÌLÀ product-card style for the four concept designs. */
-.collection-guidance{border-left:3px solid var(--gold);padding:9px 15px;margin:0 0 28px;color:#625b4b;font-size:12px;line-height:1.65;background:#fdfaf0}
-.product-card--preview{background:#fff;color:inherit;text-decoration:none}
-.product-card--preview .product-card__media{background:#f4eee4;overflow:hidden}
-.product-card--preview .product-card__media img{object-fit:cover}
-.product-card--preview .product-badge{background:var(--gold);color:#242424}
-.design-preview__label{position:absolute;right:12px;bottom:12px;border-radius:100px;background:#fffefaeb;color:#644e1b;padding:5px 9px;font-size:10px;font-weight:700}
-.design-preview__price{font-size:16px;font-weight:800;color:#252525}
-.product-card--preview .product-card__arrow{transition:transform .2s ease}
-.product-card--preview:hover .product-card__arrow{transform:translateX(3px)}
-.product-card--preview:focus-visible{outline:3px solid var(--gold);outline-offset:4px}

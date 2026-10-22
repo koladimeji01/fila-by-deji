@@ -162,45 +162,21 @@ def test_checkout_link_is_disabled_until_catalog_is_verified():
     assert "whatsapp.classList.remove('checkout-method__button--disabled')" in script
 
 
-def test_new_concept_previews_never_fake_products_or_inventory():
-    script=(ROOT / 'js/app.js').read_text()
-    page=(ROOT / 'collection.html').read_text()
-    builder=(ROOT / 'scripts/build-storefront.cjs').read_text()
-    assert 'const DESIGN_PREVIEWS=' in script
-    assert 'concepts.map(designPreviewCard)' in script
-    assert 'preloadDesignPreviews()' in script
-    assert "img.onerror=()=>{}" in script
-    assert 'https://wa.me/2348067422794?text=' in script
-    assert "price.textContent=money(item.price)" in script
-    assert "concept.textContent='Design concept'" in script
-    assert 'indicative ₦10,000 price' in page
-    assert 'files.push(relative)' in builder
-    for name in ('gobi-ivory.jpg','gobi-earth.jpg','fila-burgundy.jpg','fila-navy.jpg'):
-        assert name in script and name in builder
-
-
-def test_added_concept_caps_match_original_category_and_arrow_cards_with_indicative_prices():
-    script=(ROOT / 'js/app.js').read_text()
-    style=(ROOT / 'css/style.css').read_text()
-    assert 'function designPreviewCard(item)' in script
-    assert "badge.textContent=item.group.charAt(0).toUpperCase()+item.group.slice(1)" in script
-    assert "price.textContent=money(item.price)" in script
-    assert "arrow.innerHTML=icons.arrow" in script
-    assert "card.href=url" in script and "wa.me/2348067422794" in script
-    assert '.product-card--preview .product-badge{background:var(--gold)' in style
-    assert '.design-preview__label' in style
-    assert 'Design concept' in script
-
-
-def test_indicative_preview_prices_match_existing_card_format_without_becoming_sellable():
-    import re
-    script=(ROOT / 'js/app.js').read_text()
-    stylesheet=(ROOT / 'css/style.css').read_text()
-    html=(ROOT / 'collection.html').read_text()
-    for identifier in ('gobi-ivory','gobi-earth','fila-burgundy','fila-navy'):
-        assert re.search(r"\{id:'"+identifier+r"'.*?,price:10000\}",script)
-    assert "price.textContent=money(item.price)" in script
-    assert "card.href=url;card.target='_blank'" in script
-    assert "final price and availability to be confirmed" in script
-    assert 'indicative ₦10,000 price' in html
-    assert '.design-preview__price{font-size:16px' in stylesheet
+def test_collection_shows_only_real_database_products():
+    script = (ROOT / 'js/app.js').read_text()
+    page = (ROOT / 'collection.html').read_text()
+    builder = (ROOT / 'scripts/build-storefront.cjs').read_text()
+    style = (ROOT / 'css/style.css').read_text()
+    assert "renderGrid('collection-products',data)" in script
+    assert "const data=PRODUCTS.filter" in script
+    assert "data.length===1?'style':'styles'" in script
+    assert 'DESIGN_PREVIEWS' not in script
+    assert 'designPreviewCard' not in script
+    assert 'preloadDesignPreviews' not in script
+    assert 'collection-guidance' not in page
+    assert '.product-card--preview' not in style
+    assert "gobi-ivory.jpg" not in builder
+    assert "fila-burgundy.jpg" not in builder
+    assert "assets/ceremonial.jpg" in builder
+    assert "assets/classic.jpg" in builder
+    assert "assets/premium.jpg" in builder

@@ -17,13 +17,6 @@ const files = [
 ];
 
 rmSync(destination, { recursive: true, force: true });
-// Approved generated design previews are optional during staging.
-// If no image is present yet, the front end hides the corresponding preview.
-for (const design of ['gobi-ivory.jpg','gobi-earth.jpg','fila-burgundy.jpg','fila-navy.jpg']){
-  const relative='assets/'+design;
-  if(existsSync(path.join(root,relative)))files.push(relative);
-}
-
 for (const relative of files) {
   const source = path.join(root, relative);
   if (!existsSync(source)) throw new Error(`Missing storefront asset: ${relative}`);
