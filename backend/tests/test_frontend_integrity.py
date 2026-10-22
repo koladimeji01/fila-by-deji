@@ -171,8 +171,9 @@ def test_new_concept_previews_never_fake_products_or_inventory():
     assert 'preloadDesignPreviews()' in script
     assert "img.onerror=()=>{}" in script
     assert 'https://wa.me/2348067422794?text=' in script
-    assert 'Concept image · Confirm real stock and price' in script
-    assert 'Confirm real stock' in page or 'confirm the actual design' in page
+    assert "price.textContent='Ask for price'" in script
+    assert "concept.textContent='Design concept'" in script
+    assert 'confirm the exact cap, price and availability' in page
     assert 'files.push(relative)' in builder
     for name in ('gobi-ivory.jpg','gobi-earth.jpg','fila-burgundy.jpg','fila-navy.jpg'):
         assert name in script and name in builder
