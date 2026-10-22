@@ -150,3 +150,13 @@ def test_bag_actions_are_accessible_icon_buttons():
     assert "actions.append(saveLater,remove)" in script
     assert '.bag-line__actions' in css
     assert '@media (min-width:1060px)' in css
+
+
+def test_checkout_link_is_disabled_until_catalog_is_verified():
+    page=(ROOT / 'checkout.html').read_text()
+    script=(ROOT / 'js/app.js').read_text()
+    assert 'id="checkout-whatsapp"' in page
+    assert 'class="button button--gold checkout-method__button checkout-method__button--disabled"' in page
+    assert 'id="checkout-whatsapp" class=' in page
+    assert "checkoutLink.removeAttribute('href')" in script
+    assert "whatsapp.classList.remove('checkout-method__button--disabled')" in script

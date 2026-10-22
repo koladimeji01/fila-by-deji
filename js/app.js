@@ -83,7 +83,10 @@ function showCatalogError(message){
   el.append(document.createElement('br'),retry);
   if(grid)grid.before(el);else main.prepend(el);
   document.getElementById('checkout-subtotal')?.replaceChildren(document.createTextNode('Unavailable'));
-  const submit=document.getElementById('save-draft-order');if(submit)submit.disabled=true;
+  const checkoutLink=document.getElementById('checkout-whatsapp');
+  if(checkoutLink){checkoutLink.removeAttribute('href');checkoutLink.classList.add('checkout-method__button--disabled');checkoutLink.setAttribute('aria-disabled','true');}
+  const checkoutMessage=document.getElementById('checkout-feedback');
+  if(checkoutMessage)checkoutMessage.textContent='Unable to verify the selected caps right now. Please return to your bag and try again.';
 }
 function updateAuthNavigation(){
   const link=document.querySelector('.account-link');
@@ -160,6 +163,7 @@ function initCheckoutOptions(){
     'I understand this message does not confirm a purchase or payment.'
   ].join('\n');
   whatsapp.href=`https://wa.me/2348067422794?text=${encodeURIComponent(message)}`;
+  whatsapp.classList.remove('checkout-method__button--disabled');
   whatsapp.removeAttribute('aria-disabled');
   feedback.className='checkout-feedback';
   feedback.textContent='WhatsApp will open with your cap selection ready to review. Press Send there to contact the seller.';
