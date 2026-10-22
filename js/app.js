@@ -248,22 +248,31 @@ const DESIGN_PREVIEWS=[
 ];
 const readyPreviews=[];
 function designPreviewCard(item){
-  const card=document.createElement('article');
+  // A concept is not yet a verified inventory product; route interested buyers to
+  // WhatsApp without advertising an invented price or allowing checkout.
+  const url='https://wa.me/2348067422794?text='+encodeURIComponent(
+    'Hello FÌLÀ by Deji, I am interested in the '+item.name+
+    ' design. Please confirm that the physical cap is available, its sizes, price and delivery options.'
+  );
+  const card=document.createElement('a');
   card.className='product-card product-card--preview';
+  card.href=url;card.target='_blank';card.rel='noopener noreferrer';
+  card.setAttribute('aria-label','Enquire about '+item.name+' on WhatsApp; price and availability to be confirmed');
   const visual=document.createElement('div');visual.className='product-card__media';
-  const img=makeImage(item.image,item.name+' design concept image');
-  img.loading='lazy';visual.append(img);
-  const badge=document.createElement('span');badge.className='product-badge';badge.textContent='Design preview';
-  visual.append(badge);
+  const img=makeImage(item.image,item.name+' concept cap photo');img.loading='lazy';visual.append(img);
+  const badge=document.createElement('span');badge.className='product-badge';
+  badge.textContent=item.group.charAt(0).toUpperCase()+item.group.slice(1);
+  const concept=document.createElement('span');concept.className='design-preview__label';concept.textContent='Design concept';
+  visual.append(badge,concept);
   const body=document.createElement('div');body.className='product-card__body';
   const h=document.createElement('h3');h.textContent=item.name;
   const desc=document.createElement('p');desc.textContent=item.description;
-  const meta=document.createElement('p');meta.className='design-preview__note';meta.textContent='Concept image · Confirm real stock and price';
-  const enquire=document.createElement('a');enquire.className='design-preview__enquire';
-  enquire.href='https://wa.me/2348067422794?text='+encodeURIComponent('Hello FÌLÀ by Deji, I am interested in the '+item.name+' design preview. Can you confirm whether you can supply this design, its actual appearance, sizes, price and delivery options?');
-  enquire.target='_blank';enquire.rel='noopener noreferrer';
-  enquire.textContent='Enquire on WhatsApp ↗';
-  body.append(h,desc,meta,enquire);card.append(visual,body);return card;
+  const bottom=document.createElement('div');bottom.className='product-card__bottom';
+  const price=document.createElement('strong');price.className='design-preview__price';price.textContent='Ask for price';
+  const arrow=document.createElement('span');arrow.className='product-card__arrow';
+  arrow.innerHTML=icons.arrow;arrow.setAttribute('aria-hidden','true');
+  bottom.append(price,arrow);body.append(h,desc,bottom);card.append(visual,body);
+  return card;
 }
 function preloadDesignPreviews(){
   for(const item of DESIGN_PREVIEWS){

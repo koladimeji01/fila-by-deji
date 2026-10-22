@@ -176,3 +176,16 @@ def test_new_concept_previews_never_fake_products_or_inventory():
     assert 'files.push(relative)' in builder
     for name in ('gobi-ivory.jpg','gobi-earth.jpg','fila-burgundy.jpg','fila-navy.jpg'):
         assert name in script and name in builder
+
+
+def test_added_concept_caps_match_original_category_and_arrow_cards_without_fake_prices():
+    script=(ROOT / 'js/app.js').read_text()
+    style=(ROOT / 'css/style.css').read_text()
+    assert 'function designPreviewCard(item)' in script
+    assert "badge.textContent=item.group.charAt(0).toUpperCase()+item.group.slice(1)" in script
+    assert "price.textContent='Ask for price'" in script
+    assert "arrow.innerHTML=icons.arrow" in script
+    assert "card.href=url" in script and "wa.me/2348067422794" in script
+    assert '.product-card--preview .product-badge{background:var(--gold)' in style
+    assert '.design-preview__label' in style
+    assert 'Design concept' in script
