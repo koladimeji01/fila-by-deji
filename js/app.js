@@ -241,23 +241,23 @@ function renderGrid(id,data){const grid=$(id);if(grid)grid.replaceChildren(...da
 // Concept images are not inventory products. Do not offer an Add to Bag price/stock
 // until the seller has confirmed a real SKU and inventory in Supabase.
 const DESIGN_PREVIEWS=[
-  {id:'gobi-ivory',name:'Ivory Gòbì Aso-Oke',group:'classic',image:'assets/gobi-ivory.jpg',description:'Cream, charcoal and gold woven folds.'},
-  {id:'gobi-earth',name:'Earth-Tone Gòbì',group:'classic',image:'assets/gobi-earth.jpg',description:'Chocolate, sand and gold traditional weave.'},
-  {id:'fila-burgundy',name:'Burgundy Heritage Fìlà',group:'ceremonial',image:'assets/fila-burgundy.jpg',description:'Deep burgundy with elegant woven accents.'},
-  {id:'fila-navy',name:'Navy & Gold Fìlà',group:'premium',image:'assets/fila-navy.jpg',description:'Midnight blue, charcoal and gold accents.'}
+  {id:'gobi-ivory',name:'Ivory Gòbì Aso-Oke',group:'classic',image:'assets/gobi-ivory.jpg',description:'Cream, charcoal and gold woven folds.',price:10000},
+  {id:'gobi-earth',name:'Earth-Tone Gòbì',group:'classic',image:'assets/gobi-earth.jpg',description:'Chocolate, sand and gold traditional weave.',price:10000},
+  {id:'fila-burgundy',name:'Burgundy Heritage Fìlà',group:'ceremonial',image:'assets/fila-burgundy.jpg',description:'Deep burgundy with elegant woven accents.',price:10000},
+  {id:'fila-navy',name:'Navy & Gold Fìlà',group:'premium',image:'assets/fila-navy.jpg',description:'Midnight blue, charcoal and gold accents.',price:10000}
 ];
 const readyPreviews=[];
 function designPreviewCard(item){
-  // A concept is not yet a verified inventory product; route interested buyers to
-  // WhatsApp without advertising an invented price or allowing checkout.
+  // Preview pricing is configured for display only. These are not active inventory
+  // products and WhatsApp must confirm physical stock, final price and delivery.
   const url='https://wa.me/2348067422794?text='+encodeURIComponent(
     'Hello FÌLÀ by Deji, I am interested in the '+item.name+
-    ' design. Please confirm that the physical cap is available, its sizes, price and delivery options.'
+    ' design. The collection shows an indicative price of '+money(item.price)+'. Please confirm the final price, whether the physical cap is available, its sizes and delivery options.'
   );
   const card=document.createElement('a');
   card.className='product-card product-card--preview';
   card.href=url;card.target='_blank';card.rel='noopener noreferrer';
-  card.setAttribute('aria-label','Enquire about '+item.name+' on WhatsApp; price and availability to be confirmed');
+  card.setAttribute('aria-label','Enquire about '+item.name+' on WhatsApp, listed at '+money(item.price)+'; final price and availability to be confirmed');
   const visual=document.createElement('div');visual.className='product-card__media';
   const img=makeImage(item.image,item.name+' concept cap photo');img.loading='lazy';visual.append(img);
   const badge=document.createElement('span');badge.className='product-badge';
@@ -268,7 +268,7 @@ function designPreviewCard(item){
   const h=document.createElement('h3');h.textContent=item.name;
   const desc=document.createElement('p');desc.textContent=item.description;
   const bottom=document.createElement('div');bottom.className='product-card__bottom';
-  const price=document.createElement('strong');price.className='design-preview__price';price.textContent='Ask for price';
+  const price=document.createElement('strong');price.className='design-preview__price';price.textContent=money(item.price);
   const arrow=document.createElement('span');arrow.className='product-card__arrow';
   arrow.innerHTML=icons.arrow;arrow.setAttribute('aria-hidden','true');
   bottom.append(price,arrow);body.append(h,desc,bottom);card.append(visual,body);

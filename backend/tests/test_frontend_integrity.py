@@ -171,22 +171,36 @@ def test_new_concept_previews_never_fake_products_or_inventory():
     assert 'preloadDesignPreviews()' in script
     assert "img.onerror=()=>{}" in script
     assert 'https://wa.me/2348067422794?text=' in script
-    assert "price.textContent='Ask for price'" in script
+    assert "price.textContent=money(item.price)" in script
     assert "concept.textContent='Design concept'" in script
-    assert 'confirm the exact cap, price and availability' in page
+    assert 'indicative ₦10,000 price' in page
     assert 'files.push(relative)' in builder
     for name in ('gobi-ivory.jpg','gobi-earth.jpg','fila-burgundy.jpg','fila-navy.jpg'):
         assert name in script and name in builder
 
 
-def test_added_concept_caps_match_original_category_and_arrow_cards_without_fake_prices():
+def test_added_concept_caps_match_original_category_and_arrow_cards_with_indicative_prices():
     script=(ROOT / 'js/app.js').read_text()
     style=(ROOT / 'css/style.css').read_text()
     assert 'function designPreviewCard(item)' in script
     assert "badge.textContent=item.group.charAt(0).toUpperCase()+item.group.slice(1)" in script
-    assert "price.textContent='Ask for price'" in script
+    assert "price.textContent=money(item.price)" in script
     assert "arrow.innerHTML=icons.arrow" in script
     assert "card.href=url" in script and "wa.me/2348067422794" in script
     assert '.product-card--preview .product-badge{background:var(--gold)' in style
     assert '.design-preview__label' in style
     assert 'Design concept' in script
+
+
+def test_indicative_preview_prices_match_existing_card_format_without_becoming_sellable():
+    import re
+    script=(ROOT / 'js/app.js').read_text()
+    stylesheet=(ROOT / 'css/style.css').read_text()
+    html=(ROOT / 'collection.html').read_text()
+    for identifier in ('gobi-ivory','gobi-earth','fila-burgundy','fila-navy'):
+        assert re.search(r"\\{id:'"+identifier+r"'.*?,price:10000\\}",script)
+    assert "price.textContent=money(item.price)" in script
+    assert "card.href=url;card.target='_blank'" in script
+    assert "final price and availability to be confirmed" in script
+    assert 'indicative ₦10,000 price' in html
+    assert '.design-preview__price{font-size:16px' in stylesheet
