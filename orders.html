@@ -1,28 +1,38 @@
 <!doctype html>
-<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><meta name="theme-color" content="#262626"><meta name="description" content="Review your selected FÌLÀ caps. Checkout and online payments are not yet enabled."><title>My Orders | FÌLÀ by Deji</title>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><meta name="theme-color" content="#262626"><meta name="description" content="Review your selected FÌLÀ caps. Checkout and online payments are not yet enabled."><title>Saved for later | FÌLÀ by Deji</title>
 <link rel="icon" href="assets/fila-logo.png" type="image/png"><link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin><link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Jacques+Francois&display=swap" rel="stylesheet"><link href="css/style.css" rel="stylesheet"><script src="js/app.js" defer></script></head>
 <body data-page="orders"><a class="skip-link" href="#main">Skip to content</a><header class="site-header site-header--solid">
   <div class="header-inner wrap">
     <a class="brand" href="index.html" aria-label="FÌLÀ by Deji — home"><img src="assets/fila-logo.png" width="78" height="83" alt="FÌLÀ by Deji original logo"></a>
-    <nav class="navigation" id="site-navigation" aria-label="Main navigation"><a href="index.html" data-nav="home">Home</a><a href="collection.html" data-nav="collection">Collection</a><a href="about.html" data-nav="about">Our story</a><a href="contact.html" data-nav="contact">Contact</a></nav>
+    <nav class="navigation" id="site-navigation" aria-label="Main navigation">
+      <a href="index.html" data-nav="home">Home</a>
+      <a href="collection.html" data-nav="collection">Collection</a>
+      <a href="about.html" data-nav="about">Our story</a>
+      <a href="orders.html" data-nav="orders">Saved for later</a>
+      <a href="contact.html" data-nav="contact">Contact</a>
+    </nav>
     <div class="header-controls">
+      <a class="account-link" href="login.html" aria-label="Sign in to your account">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="8" r="4"/><path d="M4.5 20a7.5 7.5 0 0 1 15 0"/></svg>
+        <span class="account-label">Sign in</span>
+      </a>
       <a href="cart.html" class="bag-link" aria-label="View shopping bag"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.65" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4.5 8.5h15l1.1 12H3.4l1.1-12Z"/><path d="M9 9V6a3 3 0 0 1 6 0v3"/></svg><span class="bag-count" data-cart-count aria-label="Items in bag">0</span></a>
       <button type="button" class="menu-toggle" id="menu-toggle" aria-expanded="false" aria-controls="site-navigation" aria-label="Open navigation"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" aria-hidden="true"><path d="M3 7h18M3 12h18M3 17h18"/></svg></button>
     </div>
   </div>
 </header><main id="main">
-<section class="page-intro page-intro--short"><div class="wrap"><div class="breadcrumbs"><a href="index.html">Home</a><span>/</span><span>My drafts</span></div><span class="eyebrow">YOUR ACCOUNT</span><h1>My orders</h1><p>Review and manage your saved selections and temporary stock holds.</p></div></section>
+<section class="page-intro page-intro--short"><div class="wrap"><div class="breadcrumbs"><a href="index.html">Home</a><span>/</span><span>Saved for later</span></div><span class="eyebrow">YOUR ACCOUNT</span><h1>Saved for later</h1><p>Your favourite caps, kept together in your account.</p></div></section>
 <section class="wrap history-section" aria-labelledby="history-title">
-<div class="history-intro"><h2 id="history-title">Saved selections</h2><p>Drafts hold no stock. You can hold one selection for 15 minutes while preparing your order. Holds are not paid or confirmed orders.</p></div>
-<p id="orders-feedback" role="status" aria-live="polite">Loading your orders…</p>
+<div class="history-intro"><h2 id="history-title">Your saved selections</h2><p>Saving a selection does not reserve stock or place an order. You may request one temporary 15-minute stock hold; no payment is taken and nothing is confirmed.</p></div>
+<p id="orders-feedback" role="status" aria-live="polite">Loading saved selections…</p>
 <div id="orders-list" class="history-list"></div>
-<button type="button" id="load-more-orders" class="button button--dark" hidden>Load more orders</button>
+<button type="button" id="load-more-orders" class="button button--dark" hidden>Load more selections</button>
 <p><a href="collection.html" class="text-link">Continue exploring the collection →</a></p>
 </section></main><footer class="site-footer" id="footer"><div class="wrap">
   <div class="footer-grid">
     <div class="footer-intro"><span class="footer-wordmark">FÌLÀ <small>BY DEJI</small></span><p>Authentic Yoruba caps inspired by heritage, made to be worn with pride.</p></div>
     <div><h2>Explore</h2><a href="collection.html">The collection</a><a href="about.html">Our story</a><a href="contact.html">Contact us</a></div>
-    <div><h2>Customer care</h2><a href="cart.html">Shopping bag</a><a href="contact.html">Product enquiries</a><a href="contact.html">Sizing questions</a></div>
+    <div><h2>Customer care</h2><a href="cart.html">Shopping bag</a><a href="profile.html">My profile</a><a href="orders.html">Saved for later</a><a href="contact.html">Product enquiries</a><a href="contact.html">Sizing questions</a></div>
     <div class="footer-note"><h2>Crafted for kings</h2><p>Tradition. Craftsmanship. Royal heritage.</p><a class="footer-discover" href="collection.html">Discover the caps <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.65" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 12h16m-7-7 7 7-7 7"/></svg></a></div>
   </div><div class="footer-bottom"><span>© <span id="year">2026</span> FÌLÀ by Deji. All rights reserved.</span><span>Rooted in culture. Styled for today.</span></div>
 </div></footer>

@@ -22,9 +22,9 @@ function errorText(response, payload){
 async function apiRequest(path,{method='GET',body,authorize=false}={}){
   const headers={'Accept':'application/json'};
   if(body!==undefined) headers['Content-Type']='application/json';
-  if(authorize){const t=token();if(!t)throw new Error('Sign in to save a draft order.');headers.Authorization=`Bearer ${t}`;}
+  if(authorize){const t=token();if(!t)throw new Error('Sign in to save your selection for later.');headers.Authorization=`Bearer ${t}`;}
   // Render's free instances can take time to wake up. Only retry safe GETs;
-  // never replay registration, login, draft, reservation or inventory writes.
+  // never replay registration, login, saved-selection, reservation or inventory writes.
   const attempts=method==='GET'?2:1;
   for(let attempt=0;attempt<attempts;attempt++){
     const controller=new AbortController();
@@ -86,19 +86,17 @@ function showCatalogError(message){
   const submit=document.getElementById('save-draft-order');if(submit)submit.disabled=true;
 }
 function updateAuthNavigation(){
-  const controls=document.querySelector('.header-controls');if(!controls)return;
-  const link=document.createElement(token()?'button':'a');link.className='header-auth-link';
-  if(token()){link.type='button';link.textContent='Sign out';link.addEventListener('click',()=>{storeToken('');if(page==='orders'){document.getElementById('orders-list')?.replaceChildren();location.replace('login.html?next=orders.html');return;}updateAuthNavigation();toast('Signed out of this browser session.');});}
-  else{link.href='login.html';link.textContent='Sign in';}
-  controls.querySelector('.header-auth-link')?.remove();
-  controls.querySelector('.header-orders-link')?.remove();
-  if(token()){
-    const orders=document.createElement('a');orders.href='orders.html';orders.className='header-orders-link';
-    orders.textContent='My drafts';controls.prepend(orders);
-  }
-  controls.prepend(link);
+  const link=document.querySelector('.account-link');
+  if(!link)return;
+  const signedIn=Boolean(token());
+  link.href=signedIn?'profile.html':'login.html';
+  link.setAttribute('aria-label',signedIn?'View your account profile':'Sign in to your account');
+  const label=link.querySelector('.account-label');
+  if(label)label.textContent=signedIn?'Profile':'Sign in';
+  if(page==='profile'&&signedIn)link.setAttribute('aria-current','page');
+  else link.removeAttribute('aria-current');
 }
-function safeNext(){const next=new URLSearchParams(location.search).get('next');return ['checkout.html','cart.html','index.html','collection.html','orders.html'].includes(next)?next:'index.html';}
+function safeNext(){const next=new URLSearchParams(location.search).get('next');return ['checkout.html','cart.html','index.html','collection.html','orders.html','profile.html'].includes(next)?next:'index.html';}
 async function initAuth(){
  const form=$('customer-auth-form');if(!form)return;
  const feedback=$('auth-feedback'),submit=$('auth-submit');
@@ -126,22 +124,23 @@ function initDraftCheckout(){
    if(justSaved)return;
    const entries=Object.entries(cart).filter(([key])=>productForCart(key));
    if(!entries.length){feedback.textContent='Your shopping bag is empty.';return;}if(entries.length!==Object.keys(cart).length){feedback.textContent='Some saved caps are no longer available. Remove them from your bag before continuing.';return;}if(entries.some(([key])=>!productForCart(key).product.availableSizes.includes(productForCart(key).size))){feedback.textContent='A cap size in your bag is unavailable. Return to your bag and remove it.';return;}
-   if(entries.some(([,n])=>n>10)){feedback.textContent='Reduce each cap/size quantity to 10 or fewer before saving a draft.';return;}
+   if(entries.some(([,n])=>n>10)){feedback.textContent='Reduce each cap/size quantity to 10 or fewer before saving for later.';return;}
    if(!token()){location.assign('login.html?next=checkout.html');return;}
-   btn.disabled=true;feedback.textContent='Saving your draft order…';
+   btn.disabled=true;feedback.textContent='Saving your selection for later…';
    try{
      const body={items:entries.map(([key,n])=>({product_id:productForCart(key).product.id,size:productForCart(key).size,quantity:n}))};
      const order=await apiRequest('/orders/drafts',{method:'POST',body,authorize:true});
-     feedback.textContent=`Draft saved. Reference: ${order.id}. Server-calculated subtotal: ${money(order.total_ngn)}. This is not a paid or accepted order. `;const link=document.createElement('a');link.href='orders.html';link.textContent='View my draft orders';feedback.append(link);
+     feedback.textContent=`Saved for later. Reference: ${order.id}. Server-calculated subtotal: ${money(order.total_ngn)}. No payment has been taken and stock is not reserved. `;const link=document.createElement('a');link.href='orders.html';link.textContent='View saved selections';feedback.append(link);
      feedback.className='draft-feedback draft-success';
-     justSaved=true;btn.textContent='Draft saved ✓';toast('Draft order saved to your account. No payment taken.');
-   }catch(err){feedback.textContent=`Could not save draft: ${err.message}`;feedback.className='draft-feedback auth-error';}
+     justSaved=true;btn.textContent='Saved for later ✓';toast('Selection saved to your account. No payment taken.');
+   }catch(err){feedback.textContent=`Could not save selection: ${err.message}`;feedback.className='draft-feedback auth-error';}
    finally{if(!justSaved)btn.disabled=false;}
  });
 }
 
 const SIZES=['32','35','39','41'];
 const CART_KEY='fila_by_deji_cart_v1';
+const SAVED_KEY='fila_by_deji_saved_for_later_v1';
 const money=(amount)=>new Intl.NumberFormat('en-NG',{style:'currency',currency:'NGN',minimumFractionDigits:0,maximumFractionDigits:0}).format(amount);
 const $=(id)=>document.getElementById(id);
 const page=document.body.dataset.page;
@@ -152,6 +151,54 @@ function productById(id){return PRODUCTS.find(p=>p.id===id)}
 function productForCart(key){const [id,size,...rest]=key.split(':');if(rest.length||!SIZES.includes(size))return null;const product=productById(id);return product?{product,size}:null}
 function readCart(){try{const data=JSON.parse(localStorage.getItem(CART_KEY)||'{}');if(!data||typeof data!=='object'||Array.isArray(data))return {};return Object.fromEntries(Object.entries(data).filter(([key,n])=>/^[a-z0-9_-]{1,60}:(32|35|39|41)$/.test(key)&&Number.isInteger(n)&&n>0&&n<=99))}catch{return {}}}
 function saveCart(){try{localStorage.setItem(CART_KEY,JSON.stringify(cart))}catch{}updateBadges()}
+function readSaved(){try{
+  const data=JSON.parse(localStorage.getItem(SAVED_KEY)||'{}');
+  if(!data||typeof data!=='object'||Array.isArray(data))return {};
+  return Object.fromEntries(Object.entries(data).filter(([key,n])=>/^[a-z0-9_-]{1,60}:(32|35|39|41)$/.test(key)&&Number.isInteger(n)&&n>0&&n<=99));
+}catch{return {}}}
+let savedForLater=readSaved();
+function saveSaved(){try{localStorage.setItem(SAVED_KEY,JSON.stringify(savedForLater))}catch{}}
+function saveBagItemForLater(key){
+  const amount=cart[key];if(!amount)return;
+  savedForLater[key]=Math.min(99,(savedForLater[key]||0)+amount);
+  delete cart[key];saveSaved();saveCart();renderBag();
+  toast('Saved for later on this device. No stock reserved.');
+}
+function moveSavedItemToBag(key){
+  const amount=savedForLater[key];if(!amount)return;
+  const sel=productForCart(key);
+  if(!sel||!sel.product.availableSizes.includes(sel.size)){toast('This size is unavailable. Keep it saved for later.');return;}
+  const space=10-(cart[key]||0);
+  if(space<=0){toast('Your bag already has the maximum quantity for this size.');return;}
+  const moved=Math.min(amount,space);
+  cart[key]=(cart[key]||0)+moved;
+  if(amount===moved)delete savedForLater[key];else savedForLater[key]-=moved;
+  saveSaved();saveCart();renderBag();
+  toast('Moved into your shopping bag.');
+}
+function renderSavedForLater(){
+  const target=$('saved-local-items');if(!target)return;
+  target.replaceChildren();
+  const entries=Object.entries(savedForLater);
+  const count=$('saved-local-count');if(count)count.textContent=`${entries.length} ${entries.length===1?'style':'styles'}`;
+  const empty=$('saved-local-empty');if(empty)empty.hidden=entries.length>0;
+  for(const [key,qty] of entries){
+    const sel=productForCart(key);const item=document.createElement('article');item.className='saved-local-card';
+    if(sel)item.append(makeImage(sel.product.image,sel.product.name));
+    const content=document.createElement('div');content.className='saved-local-card__content';
+    const title=document.createElement('h3');title.textContent=sel?.product.name||'Previously saved cap';
+    const subtitle=document.createElement('p');subtitle.textContent=sel?`Size ${sel.size} · Qty ${qty} · ${money(sel.product.price*qty)}`:`Qty ${qty} · Not currently in the collection`;
+    const actions=document.createElement('div');actions.className='saved-local-actions';
+    if(sel){
+      const move=document.createElement('button');move.type='button';move.className='button button--dark';move.textContent='Move to bag';
+      move.disabled=!sel.product.availableSizes.includes(sel.size);
+      move.addEventListener('click',()=>moveSavedItemToBag(key));actions.append(move);
+    }
+    const remove=document.createElement('button');remove.type='button';remove.className='remove-line';remove.textContent='Remove';
+    remove.addEventListener('click',()=>{delete savedForLater[key];saveSaved();renderSavedForLater()});actions.append(remove);
+    content.append(title,subtitle,actions);item.append(content);target.append(item);
+  }
+}
 function countItems(){return Object.values(cart).reduce((s,n)=>s+n,0)}
 function updateBadges(){document.querySelectorAll('[data-cart-count]').forEach(el=>{const n=countItems();el.textContent=n>99?'99+':String(n)})}
 function toast(text){const el=$('toast');if(!el)return;clearTimeout(toastId);el.textContent=text;el.classList.add('is-visible');toastId=setTimeout(()=>el.classList.remove('is-visible'),3700)}
@@ -160,6 +207,29 @@ function productCard(p){const link=document.createElement('a');link.className='p
  const visual=document.createElement('div');visual.className='product-card__media';visual.append(makeImage(p.image,p.name));const badge=document.createElement('span');badge.className='product-badge';badge.textContent=p.availableSizes.length?p.category:'Currently unavailable';visual.append(badge);
  const body=document.createElement('div');body.className='product-card__body';const heading=document.createElement('h3');heading.textContent=p.name;const para=document.createElement('p');para.textContent=p.description;const bottom=document.createElement('div');bottom.className='product-card__bottom';const price=document.createElement('strong');price.textContent=money(p.price);const arrow=document.createElement('span');arrow.className='product-card__arrow';arrow.innerHTML=icons.arrow;arrow.setAttribute('aria-hidden','true');bottom.append(price,arrow);body.append(heading,para,bottom);link.append(visual,body);return link}
 function renderGrid(id,data){const grid=$(id);if(grid)grid.replaceChildren(...data.map(productCard))}
+async function initProfile(){
+  if(!token()){location.replace('login.html?next=profile.html');return;}
+  const signout=$('profile-signout');
+  signout?.addEventListener('click',()=>{
+    storeToken('');updateAuthNavigation();
+    location.replace('login.html');
+  });
+  const status=$('profile-status');
+  try{
+    const user=await apiRequest('/auth/me',{authorize:true});
+    if(!user||typeof user.name!=='string'||typeof user.email!=='string')throw new Error('Account information is unavailable.');
+    $('profile-name').textContent=user.name;
+    $('profile-email').textContent=user.email;
+    $('profile-avatar').textContent=(user.name.trim().charAt(0)||'F').toUpperCase();
+    $('profile-title').textContent=user.name;
+    $('profile-greeting').textContent='Your details, your favourites, all in one place.';
+    status.textContent='Your account information is up to date.';
+  }catch(err){
+    if(!token()){location.replace('login.html?next=profile.html');return;}
+    status.textContent=`Unable to load profile: ${err.message}`;
+    status.classList.add('auth-error');
+  }
+}
 function initNavigation(){const toggle=$('menu-toggle'),nav=$('site-navigation');toggle?.addEventListener('click',()=>{let open=nav.classList.toggle('is-open');toggle.setAttribute('aria-expanded',String(open));toggle.setAttribute('aria-label',open?'Close navigation':'Open navigation')});document.addEventListener('keydown',e=>{if(e.key==='Escape'&&nav?.classList.contains('is-open')){nav.classList.remove('is-open');toggle.setAttribute('aria-expanded','false');toggle.focus()}});
  document.querySelectorAll('[data-nav]').forEach(a=>{if(a.dataset.nav===page)a.setAttribute('aria-current','page')});$('year')&&($('year').textContent=String(new Date().getFullYear()));document.querySelectorAll('img:not(.product-card__media img)').forEach(img=>img.addEventListener('error',()=>img.classList.add('image-unavailable'),{once:true}))}
 function renderCollection(){const q=($('search-input')?.value||'').trim().toLowerCase();const data=PRODUCTS.filter(p=>(filter==='all'||p.id===filter)&&`${p.name} ${p.category} ${p.description}`.toLowerCase().includes(q));renderGrid('collection-products',data);$('collection-empty').hidden=data.length>0;$('results-count').textContent=`${data.length} ${data.length===1?'style':'styles'}`;document.querySelectorAll('[data-filter]').forEach(b=>{const on=b.dataset.filter===filter;b.classList.toggle('is-selected',on);b.setAttribute('aria-pressed',String(on))})}
@@ -171,8 +241,9 @@ function initDetails(){const id=new URLSearchParams(location.search).get('produc
 function updateCart(key,delta){const num=(cart[key]||0)+delta;if(num<=0)delete cart[key];else cart[key]=Math.min(num,10);saveCart();renderBag();renderCheckout()}
 function renderBag(){const list=$('bag-items');if(!list)return;list.replaceChildren();const items=Object.entries(cart);const visibleCount=items.reduce((sum,[,qty])=>sum+qty,0);$('bag-items-count').textContent=`${visibleCount} ${visibleCount===1?'item':'items'}`;$('bag-empty').hidden=items.length>0;
  for(const [key,qty] of items){const selection=productForCart(key);if(!selection){const row=document.createElement('article');row.className='bag-line';const label=document.createElement('div');label.textContent='A previously saved cap is no longer in the collection.';const remove=document.createElement('button');remove.className='remove-line';remove.type='button';remove.textContent='Remove unavailable item';remove.addEventListener('click',()=>{delete cart[key];saveCart();renderBag();});row.append(label,remove);list.append(row);continue;}const {product:p,size}=selection;const row=document.createElement('article');row.className='bag-line';const img=makeImage(p.image,p.name);const main=document.createElement('div');const top=document.createElement('div');top.className='bag-line__top';const info=document.createElement('div');const h=document.createElement('h3');h.textContent=p.name;const sizeP=document.createElement('p');sizeP.textContent=`Size ${size} · ${p.category}`;info.append(h,sizeP);const price=document.createElement('strong');price.className='bag-line__price';price.textContent=money(p.price*qty);top.append(info,price);
- const bottom=document.createElement('div');bottom.className='bag-line__bottom';const controls=document.createElement('div');controls.className='mini-quantity';const minus=document.createElement('button');minus.type='button';minus.textContent='−';minus.setAttribute('aria-label',`Remove one ${p.name} size ${size}`);minus.addEventListener('click',()=>updateCart(key,-1));const number=document.createElement('span');number.textContent=qty;const plus=document.createElement('button');plus.type='button';plus.textContent='+';plus.setAttribute('aria-label',`Add one ${p.name} size ${size}`);plus.addEventListener('click',()=>updateCart(key,1));controls.append(minus,number,plus);const remove=document.createElement('button');remove.className='remove-line';remove.type='button';remove.textContent='Remove';remove.addEventListener('click',()=>{delete cart[key];saveCart();renderBag()});bottom.append(controls,remove);main.append(top,bottom);row.append(img,main);list.append(row)}
- const total=Object.entries(cart).reduce((sum,[key,q])=>sum+(productForCart(key)?.product.price||0)*q,0);$('summary-subtotal').textContent=money(total);$('summary-total').textContent=money(total);const checkout=$('checkout-link');if(checkout){const unavailable=items.some(([key,n])=>{const item=productForCart(key);return n>10||!item||!item.product.availableSizes.includes(item.size)});checkout.setAttribute('aria-disabled',String(items.length===0||unavailable));checkout.onclick=e=>{if(!items.length||unavailable){e.preventDefault();toast('Remove unavailable caps or sizes before checking out.')}};const notice=$('bag-availability-notice');if(notice){notice.hidden=!unavailable;notice.textContent=unavailable?'Some bag items are unavailable or exceed the 10-per-size limit. Remove or reduce them to continue.':'';}}}
+ const bottom=document.createElement('div');bottom.className='bag-line__bottom';const controls=document.createElement('div');controls.className='mini-quantity';const minus=document.createElement('button');minus.type='button';minus.textContent='−';minus.setAttribute('aria-label',`Remove one ${p.name} size ${size}`);minus.addEventListener('click',()=>updateCart(key,-1));const number=document.createElement('span');number.textContent=qty;const plus=document.createElement('button');plus.type='button';plus.textContent='+';plus.setAttribute('aria-label',`Add one ${p.name} size ${size}`);plus.addEventListener('click',()=>updateCart(key,1));controls.append(minus,number,plus);const remove=document.createElement('button');remove.className='remove-line';remove.type='button';remove.textContent='Remove';remove.addEventListener('click',()=>{delete cart[key];saveCart();renderBag()});const saveLater=document.createElement('button');saveLater.className='save-later-action';saveLater.type='button';saveLater.textContent='Save for later';saveLater.addEventListener('click',()=>saveBagItemForLater(key));bottom.append(controls,saveLater,remove);main.append(top,bottom);row.append(img,main);list.append(row)}
+ const total=Object.entries(cart).reduce((sum,[key,q])=>sum+(productForCart(key)?.product.price||0)*q,0);$('summary-subtotal').textContent=money(total);$('summary-total').textContent=money(total);const checkout=$('checkout-link');if(checkout){const unavailable=items.some(([key,n])=>{const item=productForCart(key);return n>10||!item||!item.product.availableSizes.includes(item.size)});checkout.setAttribute('aria-disabled',String(items.length===0||unavailable));checkout.onclick=e=>{if(!items.length||unavailable){e.preventDefault();toast('Remove unavailable caps or sizes before checking out.')}};const notice=$('bag-availability-notice');if(notice){notice.hidden=!unavailable;notice.textContent=unavailable?'Some bag items are unavailable or exceed the 10-per-size limit. Remove or reduce them to continue.':'';}}
+ renderSavedForLater();}
 function renderCheckout(){const node=$('checkout-items');if(!node)return;node.replaceChildren();let total=0;for(const [key,qty] of Object.entries(cart)){const sel=productForCart(key);if(!sel)continue;total+=sel.product.price*qty;const line=document.createElement('div');line.className='checkout-line';const text=document.createElement('span');text.textContent=`${sel.product.name} × ${qty}`;const small=document.createElement('small');small.textContent=`Size ${sel.size}`;text.append(small);const price=document.createElement('strong');price.textContent=money(sel.product.price*qty);line.append(text,price);node.append(line)}if(!node.childElementCount){const empty=document.createElement('p');empty.textContent='No caps selected yet.';node.append(empty)}$('checkout-subtotal').textContent=money(total)}
 function renderOrderItem(item){
  const li=document.createElement('li');li.className='history-line';
@@ -194,7 +265,7 @@ async function initOrders(){
      const date=new Date(timestamp);
      return `Stock temporarily held${Number.isNaN(date.getTime())?'':` until ${date.toLocaleString('en-NG',{dateStyle:'medium',timeStyle:'short'})}`} · NOT paid`;
    }
-   return {draft:'Draft · no stock held',expired:'Hold expired · stock released',cancelled:'Cancelled'}[order.status]||'Not a paid order';
+   return {draft:'Saved for later · stock not reserved',expired:'Hold expired · stock released',cancelled:'Cancelled'}[order.status]||'Not a paid order';
  };
  const updateOrder=async(order,action,button)=>{
    if(action==='reserve'&&!window.confirm('Temporarily hold this selection for 15 minutes? No payment will be taken.'))return;
@@ -208,11 +279,11 @@ async function initOrders(){
    }catch(err){feedback.textContent=`Unable to ${action}: ${err.message}`;button.disabled=false;}
  };
  const load=async()=>{
-   if(loading)return;loading=true;more.disabled=true;feedback.textContent='Loading your order history…';
+   if(loading)return;loading=true;more.disabled=true;feedback.textContent='Loading saved selections…';
    try{
      const records=await apiRequest(`/orders?limit=20&offset=${offset}`,{authorize:true});
      if(!Array.isArray(records))throw new Error('Unexpected order history response.');
-     feedback.textContent=offset===0&&records.length===0?'You have no saved orders yet.':'Drafts and holds only. No payments have been collected.';
+     feedback.textContent=offset===0&&records.length===0?'You have no saved selections yet.':'Saved selections and temporary holds only. No payments have been taken.';
      for(const order of records){
        const card=document.createElement('article');card.className='history-card';
        const heading=document.createElement('div');heading.className='history-card__heading';
@@ -239,7 +310,7 @@ async function initOrders(){
        list.append(card);
      }
      offset+=records.length;more.hidden=records.length<20;
-   }catch(err){feedback.textContent=`Could not load orders: ${err.message}`;more.hidden=false;
+   }catch(err){feedback.textContent=`Could not load selections: ${err.message}`;more.hidden=false;
      if(!token()){location.assign('login.html?next=orders.html');return;}
    }finally{loading=false;more.disabled=false;}
  };
@@ -280,6 +351,7 @@ async function init(){
   if(page==='checkout'){renderCheckout();initDraftCheckout();}
   if(page==='contact')initContact();
   if(page==='orders')await initOrders();
+  if(page==='profile')await initProfile();
   if(page==='login'||page==='register')initAuth();
 }
 if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',init);else init();

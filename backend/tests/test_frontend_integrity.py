@@ -7,7 +7,7 @@ PAGES = sorted(ROOT.glob('*.html'))
 
 
 def test_every_page_loads_site_script_and_styles():
-    assert len(PAGES) == 10
+    assert len(PAGES) == 11
     for page in PAGES:
         markup = page.read_text(encoding='utf-8')
         assert 'href="css/style.css"' in markup, page.name
@@ -74,6 +74,45 @@ def test_catalog_network_retries_only_safe_reads_and_never_overlays_home_navigat
 def test_normal_sign_in_returns_home_without_breaking_explicit_checkout_flow():
     script = (ROOT / 'js/app.js').read_text()
     assert "function safeNext(){const next=new URLSearchParams(location.search).get('next');" in script
-    assert "['checkout.html','cart.html','index.html','collection.html','orders.html'].includes(next)?next:'index.html';" in script
+    assert "['checkout.html','cart.html','index.html','collection.html','orders.html','profile.html'].includes(next)?next:'index.html';" in script
     assert "location.assign(next);" in script
     assert "location.assign('login.html?next=checkout.html')" in script
+
+
+def test_profile_page_uses_real_authenticated_account_data():
+    page = (ROOT / 'profile.html').read_text()
+    script = (ROOT / 'js/app.js').read_text()
+    assert 'data-page="profile"' in page
+    for name in ('profile-avatar','profile-name','profile-email','profile-status','profile-signout'):
+        assert f'id="{name}"' in page
+    assert "apiRequest('/auth/me',{authorize:true})" in script
+    assert "location.replace('login.html?next=profile.html')" in script
+    assert "storeToken('');updateAuthNavigation();" in script
+    assert "'profile.html'" in (ROOT / 'scripts/build-storefront.cjs').read_text()
+
+
+def test_consistent_navigation_and_saved_for_later_copy():
+    import re
+    headers=[]
+    for page in PAGES:
+        content=page.read_text()
+        match=re.search(r'<div class="header-inner wrap">.*?</header>',content,re.DOTALL)
+        assert match, page.name
+        headers.append(match.group(0))
+        assert 'data-nav="orders">Saved for later</a>' in content, page.name
+        assert 'class="account-link"' in content, page.name
+        assert 'href="profile.html">My profile' in content, page.name
+        visible_text=re.sub(r'<[^>]+>', ' ', content)
+        assert not re.search(r'\\bdraft(s)?\\b', visible_text, re.I), page.name
+    assert len(set(headers)) == 1
+
+
+def test_save_for_later_moves_bag_items_locally_but_keeps_server_saved_selections():
+    cart=(ROOT / 'cart.html').read_text()
+    script=(ROOT / 'js/app.js').read_text()
+    assert 'id="saved-local-items"' in cart
+    assert 'Save for later' in cart
+    assert 'SAVED_KEY=' in script and 'function saveBagItemForLater(' in script
+    assert 'function moveSavedItemToBag(' in script
+    assert "apiRequest('/orders/drafts'" in script
+    assert "Save for later — no payment" in (ROOT / 'checkout.html').read_text()
