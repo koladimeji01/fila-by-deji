@@ -154,3 +154,64 @@ img.image-unavailable{opacity:0!important}.product-card__media:has(img.image-una
 .save-later-action:hover{color:#40300d}
 @media(max-width:900px){.profile-layout{grid-template-columns:1fr;gap:20px;padding-block:38px 70px}}
 @media(max-width:480px){.profile-identity{gap:14px}.profile-avatar{height:64px;width:64px;font-size:30px}.profile-panel{padding:20px}.profile-panel__heading{align-items:flex-start;flex-direction:column;gap:4px}.saved-local-card{align-items:flex-start}.saved-local-card>img{width:74px;height:86px}.saved-local-actions{gap:9px}}
+
+
+/* Checkout and cart refinements — keep the FÌLÀ gold, charcoal and serif styling. */
+@media (min-width:1060px){
+  .header-inner{grid-template-columns:145px minmax(0,1fr) 184px}
+  .navigation{gap:clamp(31px,3vw,43px)}
+  .navigation a{font-size:13px;letter-spacing:.015em}
+}
+@media (min-width:741px) and (max-width:1059px){
+  .navigation{gap:clamp(18px,2.4vw,29px)}
+  .navigation a{font-size:12px}
+}
+.bag-line__bottom{gap:12px;justify-content:space-between;flex-wrap:wrap;margin-top:18px}
+.bag-line__actions{display:flex;align-items:center;gap:10px;margin-left:auto}
+.bag-icon-action{height:38px;width:38px;flex:none;display:inline-flex;align-items:center;justify-content:center;border:1px solid #dedbd3;border-radius:9px;background:#fff;color:#776029;transition:background .2s,border-color .2s,transform .2s}
+.bag-icon-action svg{width:19px;height:19px;pointer-events:none}
+.bag-icon-action:hover{background:#fff8dd;border-color:#e3be4a;transform:translateY(-1px)}
+.bag-icon-action--danger{color:#995450}
+.bag-icon-action--danger:hover{background:#fff0ee;border-color:#e4b0aa}
+.bag-icon-action:focus-visible{outline:3px solid #c58e00;outline-offset:3px}
+.checkout-layout{grid-template-columns:minmax(0,1.35fr) minmax(270px,.7fr);gap:clamp(24px,3.5vw,56px);padding-top:55px}
+.checkout-panel{padding:clamp(24px,3vw,43px)}
+.checkout-panel h2{font-size:clamp(28px,3.2vw,40px);margin-bottom:15px}
+.checkout-lead{max-width:680px;font-size:14px}
+.checkout-methods{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:16px;margin-top:28px}
+.checkout-method{display:flex;flex-direction:column;border:1px solid #e4dfd2;border-radius:13px;padding:22px;background:#fff;min-width:0}
+.checkout-method--featured{border-color:#e4bb42;background:#fffcf3;box-shadow:0 5px 18px #e2be5f18}
+.checkout-method__head{display:flex;justify-content:space-between;align-items:center;gap:7px;margin-bottom:20px}
+.checkout-method__icon{display:grid;place-items:center;width:43px;height:43px;border-radius:11px;background:#f5f1e6;color:#514321}
+.checkout-method--featured .checkout-method__icon{background:#ffec9f}
+.checkout-method__icon svg{width:22px;height:22px}
+.checkout-method__badge{background:#f2efe8;color:#746d5d;border-radius:999px;padding:5px 9px;white-space:nowrap;font-size:10px;font-weight:700}
+.checkout-method__badge--live{background:#ecf6ed;color:#376848}
+.checkout-method h3{font-family:var(--display);font-size:25px;font-weight:400;margin-bottom:10px;line-height:1.28}
+.checkout-panel .checkout-method p{font-size:12px;color:#666;line-height:1.7;margin-bottom:20px;flex:1}
+.checkout-method__button{width:100%;font-size:12px;min-height:47px;padding:11px 13px;text-align:center}
+.button--outline{background:#fff;border:1px solid #c8c3b7;color:#333}
+.button--outline:hover{background:#f9f6ed;border-color:#9c947e}
+.checkout-method__button--disabled{opacity:.5;pointer-events:none;cursor:not-allowed}
+.checkout-feedback{margin:20px 0 0;padding:13px 15px;background:#f6f5f0;border:1px solid #eeeae0;border-radius:8px;color:#514f47;font-size:12px}
+.checkout-feedback--notice{background:#fff9e8;border-color:#f0d797;color:#594614}
+.checkout-actions{border-top:1px solid var(--border);padding-top:20px}
+.checkout-layout .order-summary{position:sticky;top:24px}
+@media (max-width:1050px){
+  .checkout-layout{grid-template-columns:1fr;gap:22px}
+  .checkout-layout .order-summary{position:static}
+}
+@media (max-width:740px){
+  .bag-line__bottom{align-items:center}
+  .bag-line__actions{gap:8px}
+  .navigation{gap:0}
+  .checkout-methods{grid-template-columns:1fr}
+  .checkout-panel{padding:25px 21px}
+  .checkout-method{padding:19px}
+}
+@media (max-width:420px){
+  .bag-line{grid-template-columns:85px minmax(0,1fr);gap:12px}
+  .bag-line img{width:85px;height:102px}
+  .bag-line__top{gap:8px;flex-wrap:wrap}
+  .bag-line__bottom{gap:8px}
+}

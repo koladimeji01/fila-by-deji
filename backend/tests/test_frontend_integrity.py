@@ -27,7 +27,9 @@ def test_stock_warning_and_checkout_controls_exist():
     cart = (ROOT / 'cart.html').read_text(encoding='utf-8')
     checkout = (ROOT / 'checkout.html').read_text(encoding='utf-8')
     assert 'id="bag-availability-notice"' in cart
-    assert 'id="save-draft-order"' in checkout
+    assert 'id="checkout-payment-option"' in checkout
+    assert 'id="checkout-whatsapp"' in checkout
+    assert 'Checkout <svg' in cart
     assert 'no payment' in checkout.lower()
 
 def test_contact_uses_real_whatsapp_and_email_links_without_product_photo():
@@ -76,7 +78,7 @@ def test_normal_sign_in_returns_home_without_breaking_explicit_checkout_flow():
     assert "function safeNext(){const next=new URLSearchParams(location.search).get('next');" in script
     assert "['checkout.html','cart.html','index.html','collection.html','orders.html','profile.html'].includes(next)?next:'index.html';" in script
     assert "location.assign(next);" in script
-    assert "location.assign('login.html?next=checkout.html')" in script
+    assert 'function initCheckoutOptions()' in script
 
 
 def test_profile_page_uses_real_authenticated_account_data():
@@ -116,5 +118,35 @@ def test_save_for_later_moves_bag_items_locally_but_keeps_server_saved_selection
     assert 'Save for later' in cart
     assert 'SAVED_KEY=' in script and 'function saveBagItemForLater(' in script
     assert 'function moveSavedItemToBag(' in script
-    assert "apiRequest('/orders/drafts'" in script
-    assert "Save for later — no payment" in (ROOT / 'checkout.html').read_text()
+    assert "function initCheckoutOptions()" in script
+    assert "https://wa.me/2348067422794?text=" in script
+    assert "Proceed to payment" in (ROOT / 'checkout.html').read_text()
+
+
+def test_checkout_uses_real_whatsapp_bag_summary_and_does_not_fake_payments():
+    script = (ROOT / 'js/app.js').read_text()
+    page = (ROOT / 'checkout.html').read_text()
+    cart = (ROOT / 'cart.html').read_text()
+    assert 'initDraftCheckout()' not in script
+    assert 'function initCheckoutOptions()' in script
+    assert "selections.every(Boolean)" in script
+    assert "item.lineTotal" in script
+    assert "encodeURIComponent(message)" in script
+    assert "whatsapp.href=" in script
+    assert 'id="checkout-whatsapp"' in page
+    assert 'id="checkout-payment-option"' in page
+    assert 'aria-live="polite"' in page
+    assert 'verified gateway is live' in page
+    assert "Checkout <svg" in cart
+
+
+def test_bag_actions_are_accessible_icon_buttons():
+    script = (ROOT / 'js/app.js').read_text()
+    css = (ROOT / 'css/style.css').read_text()
+    assert "saveLater.title='Save for later'" in script
+    assert "remove.title='Remove from bag'" in script
+    assert "saveLater.setAttribute('aria-label'" in script
+    assert "remove.setAttribute('aria-label'" in script
+    assert "actions.append(saveLater,remove)" in script
+    assert '.bag-line__actions' in css
+    assert '@media (min-width:1060px)' in css

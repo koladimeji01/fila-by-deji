@@ -117,25 +117,52 @@ async function initAuth(){
    finally{submit.disabled=false;}
  });
 }
-function initDraftCheckout(){
- const btn=$('save-draft-order'),feedback=$('draft-feedback');if(!btn||!feedback)return;
- let justSaved=false;
- btn.addEventListener('click',async()=>{
-   if(justSaved)return;
-   const entries=Object.entries(cart).filter(([key])=>productForCart(key));
-   if(!entries.length){feedback.textContent='Your shopping bag is empty.';return;}if(entries.length!==Object.keys(cart).length){feedback.textContent='Some saved caps are no longer available. Remove them from your bag before continuing.';return;}if(entries.some(([key])=>!productForCart(key).product.availableSizes.includes(productForCart(key).size))){feedback.textContent='A cap size in your bag is unavailable. Return to your bag and remove it.';return;}
-   if(entries.some(([,n])=>n>10)){feedback.textContent='Reduce each cap/size quantity to 10 or fewer before saving for later.';return;}
-   if(!token()){location.assign('login.html?next=checkout.html');return;}
-   btn.disabled=true;feedback.textContent='Saving your selection for later…';
-   try{
-     const body={items:entries.map(([key,n])=>({product_id:productForCart(key).product.id,size:productForCart(key).size,quantity:n}))};
-     const order=await apiRequest('/orders/drafts',{method:'POST',body,authorize:true});
-     feedback.textContent=`Saved for later. Reference: ${order.id}. Server-calculated subtotal: ${money(order.total_ngn)}. No payment has been taken and stock is not reserved. `;const link=document.createElement('a');link.href='orders.html';link.textContent='View saved selections';feedback.append(link);
-     feedback.className='draft-feedback draft-success';
-     justSaved=true;btn.textContent='Saved for later ✓';toast('Selection saved to your account. No payment taken.');
-   }catch(err){feedback.textContent=`Could not save selection: ${err.message}`;feedback.className='draft-feedback auth-error';}
-   finally{if(!justSaved)btn.disabled=false;}
- });
+// Checkout choices are explicit. No customer is charged or marked as paid here.
+function initCheckoutOptions(){
+  const payment=$('checkout-payment-option');
+  const whatsapp=$('checkout-whatsapp');
+  const feedback=$('checkout-feedback');
+  if(!payment||!whatsapp||!feedback)return;
+
+  payment.addEventListener('click',()=>{
+    feedback.className='checkout-feedback checkout-feedback--notice';
+    feedback.textContent='Secure online payment is not yet enabled. Please choose WhatsApp ordering while we finish payment-gateway verification.';
+    feedback.focus();
+  });
+
+  const entries=Object.entries(cart);
+  const selections=entries.map(([key,qty])=>{
+    const chosen=productForCart(key);
+    if(!chosen||!chosen.product.availableSizes.includes(chosen.size)||qty>10)return null;
+    return {name:chosen.product.name,size:chosen.size,quantity:qty,lineTotal:chosen.product.price*qty};
+  });
+  const valid=entries.length>0&&selections.every(Boolean);
+  if(!valid){
+    whatsapp.removeAttribute('href');
+    whatsapp.setAttribute('aria-disabled','true');
+    whatsapp.classList.add('checkout-method__button--disabled');
+    feedback.className='checkout-feedback checkout-feedback--notice';
+    feedback.textContent=entries.length?'Some bag items are unavailable. Please return to your bag and correct them.':'Your shopping bag is empty. Add a cap before choosing how to order.';
+    return;
+  }
+
+  const amount=selections.reduce((sum,item)=>sum+item.lineTotal,0);
+  const lines=selections.map(item=>`• ${item.name}\n  Size: ${item.size} | Quantity: ${item.quantity} | ${money(item.lineTotal)}`);
+  const message=[
+    'Hello FÌLÀ by Deji,',
+    '',
+    "I'd like to order these caps:",
+    ...lines,
+    '',
+    `Estimated subtotal: ${money(amount)} (excluding delivery).`,
+    '',
+    'Please confirm stock availability, delivery cost and how to complete my order.',
+    'I understand this message does not confirm a purchase or payment.'
+  ].join('\n');
+  whatsapp.href=`https://wa.me/2348067422794?text=${encodeURIComponent(message)}`;
+  whatsapp.removeAttribute('aria-disabled');
+  feedback.className='checkout-feedback';
+  feedback.textContent='WhatsApp will open with your cap selection ready to review. Press Send there to contact the seller.';
 }
 
 const SIZES=['32','35','39','41'];
@@ -241,7 +268,16 @@ function initDetails(){const id=new URLSearchParams(location.search).get('produc
 function updateCart(key,delta){const num=(cart[key]||0)+delta;if(num<=0)delete cart[key];else cart[key]=Math.min(num,10);saveCart();renderBag();renderCheckout()}
 function renderBag(){const list=$('bag-items');if(!list)return;list.replaceChildren();const items=Object.entries(cart);const visibleCount=items.reduce((sum,[,qty])=>sum+qty,0);$('bag-items-count').textContent=`${visibleCount} ${visibleCount===1?'item':'items'}`;$('bag-empty').hidden=items.length>0;
  for(const [key,qty] of items){const selection=productForCart(key);if(!selection){const row=document.createElement('article');row.className='bag-line';const label=document.createElement('div');label.textContent='A previously saved cap is no longer in the collection.';const remove=document.createElement('button');remove.className='remove-line';remove.type='button';remove.textContent='Remove unavailable item';remove.addEventListener('click',()=>{delete cart[key];saveCart();renderBag();});row.append(label,remove);list.append(row);continue;}const {product:p,size}=selection;const row=document.createElement('article');row.className='bag-line';const img=makeImage(p.image,p.name);const main=document.createElement('div');const top=document.createElement('div');top.className='bag-line__top';const info=document.createElement('div');const h=document.createElement('h3');h.textContent=p.name;const sizeP=document.createElement('p');sizeP.textContent=`Size ${size} · ${p.category}`;info.append(h,sizeP);const price=document.createElement('strong');price.className='bag-line__price';price.textContent=money(p.price*qty);top.append(info,price);
- const bottom=document.createElement('div');bottom.className='bag-line__bottom';const controls=document.createElement('div');controls.className='mini-quantity';const minus=document.createElement('button');minus.type='button';minus.textContent='−';minus.setAttribute('aria-label',`Remove one ${p.name} size ${size}`);minus.addEventListener('click',()=>updateCart(key,-1));const number=document.createElement('span');number.textContent=qty;const plus=document.createElement('button');plus.type='button';plus.textContent='+';plus.setAttribute('aria-label',`Add one ${p.name} size ${size}`);plus.addEventListener('click',()=>updateCart(key,1));controls.append(minus,number,plus);const remove=document.createElement('button');remove.className='remove-line';remove.type='button';remove.textContent='Remove';remove.addEventListener('click',()=>{delete cart[key];saveCart();renderBag()});const saveLater=document.createElement('button');saveLater.className='save-later-action';saveLater.type='button';saveLater.textContent='Save for later';saveLater.addEventListener('click',()=>saveBagItemForLater(key));bottom.append(controls,saveLater,remove);main.append(top,bottom);row.append(img,main);list.append(row)}
+ const bottom=document.createElement('div');bottom.className='bag-line__bottom';const controls=document.createElement('div');controls.className='mini-quantity';const minus=document.createElement('button');minus.type='button';minus.textContent='−';minus.setAttribute('aria-label',`Remove one ${p.name} size ${size}`);minus.addEventListener('click',()=>updateCart(key,-1));const number=document.createElement('span');number.textContent=qty;const plus=document.createElement('button');plus.type='button';plus.textContent='+';plus.setAttribute('aria-label',`Add one ${p.name} size ${size}`);plus.addEventListener('click',()=>updateCart(key,1));controls.append(minus,number,plus);const actions=document.createElement('div');actions.className='bag-line__actions';
+ const saveLater=document.createElement('button');saveLater.className='bag-icon-action';saveLater.type='button';
+ saveLater.title='Save for later';saveLater.setAttribute('aria-label',`Save ${p.name}, size ${size}, for later`);
+ saveLater.innerHTML='<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 3.5h12a1 1 0 0 1 1 1V21l-7-4-7 4V4.5a1 1 0 0 1 1-1Z"/></svg>';
+ saveLater.addEventListener('click',()=>saveBagItemForLater(key));
+ const remove=document.createElement('button');remove.className='bag-icon-action bag-icon-action--danger';remove.type='button';
+ remove.title='Remove from bag';remove.setAttribute('aria-label',`Remove ${p.name}, size ${size}, from bag`);
+ remove.innerHTML='<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 7h16M10 3h4M6 7l1 14h10l1-14M10 11v6M14 11v6"/></svg>';
+ remove.addEventListener('click',()=>{delete cart[key];saveCart();renderBag()});
+ actions.append(saveLater,remove);bottom.append(controls,actions);main.append(top,bottom);row.append(img,main);list.append(row)}
  const total=Object.entries(cart).reduce((sum,[key,q])=>sum+(productForCart(key)?.product.price||0)*q,0);$('summary-subtotal').textContent=money(total);$('summary-total').textContent=money(total);const checkout=$('checkout-link');if(checkout){const unavailable=items.some(([key,n])=>{const item=productForCart(key);return n>10||!item||!item.product.availableSizes.includes(item.size)});checkout.setAttribute('aria-disabled',String(items.length===0||unavailable));checkout.onclick=e=>{if(!items.length||unavailable){e.preventDefault();toast('Remove unavailable caps or sizes before checking out.')}};const notice=$('bag-availability-notice');if(notice){notice.hidden=!unavailable;notice.textContent=unavailable?'Some bag items are unavailable or exceed the 10-per-size limit. Remove or reduce them to continue.':'';}}
  renderSavedForLater();}
 function renderCheckout(){const node=$('checkout-items');if(!node)return;node.replaceChildren();let total=0;for(const [key,qty] of Object.entries(cart)){const sel=productForCart(key);if(!sel)continue;total+=sel.product.price*qty;const line=document.createElement('div');line.className='checkout-line';const text=document.createElement('span');text.textContent=`${sel.product.name} × ${qty}`;const small=document.createElement('small');small.textContent=`Size ${sel.size}`;text.append(small);const price=document.createElement('strong');price.textContent=money(sel.product.price*qty);line.append(text,price);node.append(line)}if(!node.childElementCount){const empty=document.createElement('p');empty.textContent='No caps selected yet.';node.append(empty)}$('checkout-subtotal').textContent=money(total)}
@@ -348,7 +384,7 @@ async function init(){
   if(page==='collection')initCollection();
   if(page==='details')initDetails();
   if(page==='cart')renderBag();
-  if(page==='checkout'){renderCheckout();initDraftCheckout();}
+  if(page==='checkout'){renderCheckout();initCheckoutOptions();}
   if(page==='contact')initContact();
   if(page==='orders')await initOrders();
   if(page==='profile')await initProfile();
