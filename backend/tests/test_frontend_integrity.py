@@ -99,7 +99,9 @@ def test_consistent_navigation_and_saved_for_later_copy():
         match=re.search(r'<div class="header-inner wrap">.*?</header>',content,re.DOTALL)
         assert match, page.name
         headers.append(match.group(0))
-        assert 'data-nav="orders">Saved for later</a>' in content, page.name
+        assert 'data-nav="orders">Saved for later</a>' not in content, page.name
+        assert '<a href="orders.html"' not in match.group(0), page.name
+        assert '<a href="contact.html" data-nav="contact">Contact</a>' in match.group(0)
         assert 'class="account-link"' in content, page.name
         assert 'href="profile.html">My profile' in content, page.name
         visible_text=re.sub(r'<[^>]+>', ' ', content)
