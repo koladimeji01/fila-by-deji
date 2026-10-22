@@ -238,6 +238,42 @@ function productCard(p){const link=document.createElement('a');link.className='p
  const visual=document.createElement('div');visual.className='product-card__media';visual.append(makeImage(p.image,p.name));const badge=document.createElement('span');badge.className='product-badge';badge.textContent=p.availableSizes.length?p.category:'Currently unavailable';visual.append(badge);
  const body=document.createElement('div');body.className='product-card__body';const heading=document.createElement('h3');heading.textContent=p.name;const para=document.createElement('p');para.textContent=p.description;const bottom=document.createElement('div');bottom.className='product-card__bottom';const price=document.createElement('strong');price.textContent=money(p.price);const arrow=document.createElement('span');arrow.className='product-card__arrow';arrow.innerHTML=icons.arrow;arrow.setAttribute('aria-hidden','true');bottom.append(price,arrow);body.append(heading,para,bottom);link.append(visual,body);return link}
 function renderGrid(id,data){const grid=$(id);if(grid)grid.replaceChildren(...data.map(productCard))}
+// Concept images are not inventory products. Do not offer an Add to Bag price/stock
+// until the seller has confirmed a real SKU and inventory in Supabase.
+const DESIGN_PREVIEWS=[
+  {id:'gobi-ivory',name:'Ivory Gòbì Aso-Oke',group:'classic',image:'assets/gobi-ivory.jpg',description:'Cream, charcoal and gold woven folds.'},
+  {id:'gobi-earth',name:'Earth-Tone Gòbì',group:'classic',image:'assets/gobi-earth.jpg',description:'Chocolate, sand and gold traditional weave.'},
+  {id:'fila-burgundy',name:'Burgundy Heritage Fìlà',group:'ceremonial',image:'assets/fila-burgundy.jpg',description:'Deep burgundy with elegant woven accents.'},
+  {id:'fila-navy',name:'Navy & Gold Fìlà',group:'premium',image:'assets/fila-navy.jpg',description:'Midnight blue, charcoal and gold accents.'}
+];
+const readyPreviews=[];
+function designPreviewCard(item){
+  const card=document.createElement('article');
+  card.className='product-card product-card--preview';
+  const visual=document.createElement('div');visual.className='product-card__media';
+  const img=makeImage(item.image,item.name+' design concept image');
+  img.loading='lazy';visual.append(img);
+  const badge=document.createElement('span');badge.className='product-badge';badge.textContent='Design preview';
+  visual.append(badge);
+  const body=document.createElement('div');body.className='product-card__body';
+  const h=document.createElement('h3');h.textContent=item.name;
+  const desc=document.createElement('p');desc.textContent=item.description;
+  const meta=document.createElement('p');meta.className='design-preview__note';meta.textContent='Concept image · Confirm real stock and price';
+  const enquire=document.createElement('a');enquire.className='design-preview__enquire';
+  enquire.href='https://wa.me/2348067422794?text='+encodeURIComponent('Hello FÌLÀ by Deji, I am interested in the '+item.name+' design preview. Can you confirm whether you can supply this design, its actual appearance, sizes, price and delivery options?');
+  enquire.target='_blank';enquire.rel='noopener noreferrer';
+  enquire.textContent='Enquire on WhatsApp ↗';
+  body.append(h,desc,meta,enquire);card.append(visual,body);return card;
+}
+function preloadDesignPreviews(){
+  for(const item of DESIGN_PREVIEWS){
+    const img=new Image();
+    img.onload=()=>{if(!readyPreviews.includes(item)){readyPreviews.push(item);renderCollection();}};
+    img.onerror=()=>{}; // Never display a broken preview if an asset has not been published yet.
+    img.src=item.image;
+  }
+}
+
 async function initProfile(){
   if(!token()){location.replace('login.html?next=profile.html');return;}
   const signout=$('profile-signout');
@@ -263,8 +299,8 @@ async function initProfile(){
 }
 function initNavigation(){const toggle=$('menu-toggle'),nav=$('site-navigation');toggle?.addEventListener('click',()=>{let open=nav.classList.toggle('is-open');toggle.setAttribute('aria-expanded',String(open));toggle.setAttribute('aria-label',open?'Close navigation':'Open navigation')});document.addEventListener('keydown',e=>{if(e.key==='Escape'&&nav?.classList.contains('is-open')){nav.classList.remove('is-open');toggle.setAttribute('aria-expanded','false');toggle.focus()}});
  document.querySelectorAll('[data-nav]').forEach(a=>{if(a.dataset.nav===page)a.setAttribute('aria-current','page')});$('year')&&($('year').textContent=String(new Date().getFullYear()));document.querySelectorAll('img:not(.product-card__media img)').forEach(img=>img.addEventListener('error',()=>img.classList.add('image-unavailable'),{once:true}))}
-function renderCollection(){const q=($('search-input')?.value||'').trim().toLowerCase();const data=PRODUCTS.filter(p=>(filter==='all'||p.id===filter)&&`${p.name} ${p.category} ${p.description}`.toLowerCase().includes(q));renderGrid('collection-products',data);$('collection-empty').hidden=data.length>0;$('results-count').textContent=`${data.length} ${data.length===1?'style':'styles'}`;document.querySelectorAll('[data-filter]').forEach(b=>{const on=b.dataset.filter===filter;b.classList.toggle('is-selected',on);b.setAttribute('aria-pressed',String(on))})}
-function initCollection(){$('search-input')?.addEventListener('input',renderCollection);document.querySelectorAll('[data-filter]').forEach(b=>b.addEventListener('click',()=>{filter=b.dataset.filter;renderCollection()}));$('clear-filters')?.addEventListener('click',()=>{filter='all';$('search-input').value='';renderCollection()});renderCollection()}
+function renderCollection(){const q=($('search-input')?.value||'').trim().toLowerCase();const data=PRODUCTS.filter(p=>(filter==='all'||p.id===filter)&&`${p.name} ${p.category} ${p.description}`.toLowerCase().includes(q));const concepts=readyPreviews.filter(p=>(filter==='all'||p.group===filter)&&`${p.name} ${p.group} ${p.description}`.toLowerCase().includes(q));const grid=$('collection-products');if(grid)grid.replaceChildren(...data.map(productCard),...concepts.map(designPreviewCard));$('collection-empty').hidden=data.length+concepts.length>0;$('results-count').textContent=`${data.length} ${data.length===1?'available style':'available styles'}${concepts.length?' · '+concepts.length+' design '+(concepts.length===1?'preview':'previews'):''}`;document.querySelectorAll('[data-filter]').forEach(b=>{const on=b.dataset.filter===filter;b.classList.toggle('is-selected',on);b.setAttribute('aria-pressed',String(on))})}
+function initCollection(){$('search-input')?.addEventListener('input',renderCollection);document.querySelectorAll('[data-filter]').forEach(b=>b.addEventListener('click',()=>{filter=b.dataset.filter;renderCollection();preloadDesignPreviews()}));$('clear-filters')?.addEventListener('click',()=>{filter='all';$('search-input').value='';renderCollection()});renderCollection()}
 function initDetails(){const id=new URLSearchParams(location.search).get('product');const product=productById(id);if(!product){showCatalogError('This cap could not be found. Please return to the collection.');document.querySelector('.product-layout')?.remove();document.getElementById('related-products')?.replaceChildren();return;}$('product-title').textContent=product.name;$('product-description').textContent=product.description;$('product-price').textContent=money(product.price);$('product-category').textContent=`${product.category.toUpperCase()} COLLECTION`;$('crumb-product').textContent=product.name;document.title=`${product.name} | FÌLÀ by Deji`;const photo=$('product-photo');photo.src=product.image;photo.alt=product.name;
  const options=SIZES.map(size=>{const btn=document.createElement('button');btn.type='button';btn.className='size-option';btn.textContent=size;btn.disabled=!product.availableSizes.includes(size);btn.setAttribute('aria-pressed','false');btn.setAttribute('aria-label',`Choose cap size ${size}${btn.disabled?' — out of stock':''}`);btn.addEventListener('click',()=>{selectedSize=size;$('selected-size').textContent=`Size ${size} selected`;$('size-error').hidden=true;document.querySelectorAll('.size-option').forEach(b=>b.setAttribute('aria-pressed',String(b===btn)))});return btn});$('size-options').replaceChildren(...options);
  if(!product.availableSizes.length){$('selected-size').textContent='This cap is currently out of stock.';$('add-to-bag').disabled=true;}

@@ -160,3 +160,19 @@ def test_checkout_link_is_disabled_until_catalog_is_verified():
     assert 'id="checkout-whatsapp" class=' in page
     assert "checkoutLink.removeAttribute('href')" in script
     assert "whatsapp.classList.remove('checkout-method__button--disabled')" in script
+
+
+def test_new_concept_previews_never_fake_products_or_inventory():
+    script=(ROOT / 'js/app.js').read_text()
+    page=(ROOT / 'collection.html').read_text()
+    builder=(ROOT / 'scripts/build-storefront.cjs').read_text()
+    assert 'const DESIGN_PREVIEWS=' in script
+    assert 'concepts.map(designPreviewCard)' in script
+    assert 'preloadDesignPreviews()' in script
+    assert "img.onerror=()=>{}" in script
+    assert 'https://wa.me/2348067422794?text=' in script
+    assert 'Concept image · Confirm real stock and price' in script
+    assert 'Confirm real stock' in page or 'confirm the actual design' in page
+    assert 'files.push(relative)' in builder
+    for name in ('gobi-ivory.jpg','gobi-earth.jpg','fila-burgundy.jpg','fila-navy.jpg'):
+        assert name in script and name in builder
