@@ -18,6 +18,7 @@ Both admin URLs are now verified and assigned to the standalone administration p
 - Create staff account from the sign-in page (name, email, password and password confirmation). This uses `/api/v1/auth/register`, which creates a **non-admin account**. It does not grant access or notify the business owner automatically.
 - Administrator-only sign-in; the backend checks `users.is_admin` on each business endpoint
 - Operations overview; totals are not sales revenue
+- **Add a new product** through the Product Catalogue panel. Enter product name, category, description, price, a public HTTPS image URL, available quantities for sizes 32/35/39/41, and choose whether to publish. The backend generates a unique ID, creates all four inventory rows atomically and requires administrator authorization.
 - Edit **existing** catalog names, categories, descriptions, prices and visibility
 - View and set exact available stock by size
 - Review unpaid customer enquiries and temporary holds
@@ -25,7 +26,7 @@ Both admin URLs are now verified and assigned to the standalone administration p
 - Report on the latest 100 entries (not full historical totals), plus CSV export
 - View the verified staff identity and end the browser session
 
-Products' image files must be committed and deployed from the storefront repository. The dashboard does **not** upload images, create products or accept payments. No secrets or direct Supabase browser credentials are bundled.
+The three original catalog photographs remain unchanged and are shipped from GitHub. New catalog photographs may be hosted publicly on a reliable image host; paste a direct public **HTTPS link ending in .jpg, .jpeg, .png or .webp**. The backend validates the URL but does not download the image. The admin panel does **not yet upload a file directly**; a Supabase Storage public bucket (none was configured when this was built) or another hosted image service can provide URLs once set up. Confirm you own or have permission to use each photo and test that it loads in the storefront. New products can be saved as **hidden drafts** until the image and stock are ready. The dashboard does **not** accept payments. No secrets or direct Supabase browser credentials are bundled.
 
 ## Backend and access
 
