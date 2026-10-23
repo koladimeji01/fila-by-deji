@@ -34,6 +34,8 @@ def check_readiness() -> list[str]:
                 'order_items': {'order_id', 'product_id'},
                 'product_inventory': {'product_id', 'size', 'quantity'},
                 'product_photos': {'product_id', 'image_data', 'mime_type', 'created_at'},
+                'staff_applications': {'user_id', 'status', 'requested_at', 'reviewed_at', 'reviewed_by'},
+                'staff_access_audit': {'id', 'subject_user_id', 'actor_user_id', 'action', 'created_at'},
                 'saved_items': {'user_id', 'product_id', 'size', 'quantity'},
             }
             tables = set(schema.get_table_names())
