@@ -42,6 +42,8 @@ class Order(Base):
     total_kobo: Mapped[int] = mapped_column(Integer, nullable=False)
     client_request_id: Mapped[str | None] = mapped_column(String(36), unique=True, nullable=True, index=True)
     delivery_destination: Mapped[str | None] = mapped_column(String(120), nullable=True)
+    shipping_quote_kobo: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    shipping_quoted_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow, nullable=False)
     reserved_until: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     user: Mapped[User] = relationship(back_populates='orders')
@@ -88,3 +90,15 @@ class SavedItem(Base):
         CheckConstraint("size IN ('32','35','39','41')", name='ck_saved_item_size'),
         CheckConstraint('quantity BETWEEN 1 AND 10', name='ck_saved_item_quantity'),
     )
+
+
+class DeliveryQuoteAudit(Base):
+    """Immutable log of staff changes to a shipping quote; no payment is taken."""
+    __tablename__ = 'delivery_quote_audit'
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=lambda: str(uuid4()))
+    order_id: Mapped[str] = mapped_column(ForeignKey('orders.id', ondelete='RESTRICT'), nullable=False, index=True)
+    admin_user_id: Mapped[str] = mapped_column(ForeignKey('users.id', ondelete='RESTRICT'), nullable=False)
+    previous_amount_kobo: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    new_amount_kobo: Mapped[int] = mapped_column(Integer, nullable=False)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False, default=utcnow)
+    __table_args__ = (CheckConstraint('new_amount_kobo >= 0', name='ck_delivery_quote_audit_amount'),)

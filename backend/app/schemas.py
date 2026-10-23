@@ -104,6 +104,9 @@ class OrderResponse(BaseModel):
     created_at: datetime
     reserved_until: datetime | None = None
     delivery_destination: str | None = None
+    shipping_quote_ngn: int | None = None
+    estimated_total_ngn: int | None = None
+    shipping_quoted_at: datetime | None = None
     items: list[OrderItemResponse]
 
 
@@ -134,3 +137,8 @@ class SavedItemResponse(BaseModel):
     quantity: int
     unit_price_ngn: int
     available_quantity: int
+
+
+class DeliveryQuoteRequest(BaseModel):
+    model_config = ConfigDict(extra='forbid')
+    shipping_amount_ngn: int = Field(ge=0, le=2_000_000, strict=True)

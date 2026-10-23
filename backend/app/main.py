@@ -8,10 +8,10 @@ from sqlalchemy.orm import Session
 from .config import get_settings
 from .rate_limit import limit_request
 from .database import get_db
-from .models import Order, OrderItem, Product, ProductInventory, User, SavedItem
+from .models import Order, OrderItem, Product, ProductInventory, User, SavedItem, DeliveryQuoteAudit
 from .schemas import (AdminOrderResponse, CreateDraftOrderRequest, LoginRequest, OrderItemResponse, OrderResponse,
                       ProductResponse, RegisterRequest, StockLevelResponse, StockUpdateRequest, TokenResponse, UserResponse,
-                      SaveItemRequest, SavedItemResponse)
+                      SaveItemRequest, SavedItemResponse, DeliveryQuoteRequest)
 from .security import create_token, get_current_admin, get_current_user, hash_password, verify_password
 from .reservations import aware, cancel_order, expire_holds, reserve_order
 
@@ -64,6 +64,9 @@ def order_out(order: Order) -> OrderResponse:
         id=order.id, status=order.status, total_ngn=order.total_kobo // 100,
         created_at=order.created_at, reserved_until=aware(order.reserved_until),
         delivery_destination=order.delivery_destination,
+        shipping_quote_ngn=order.shipping_quote_kobo // 100 if order.shipping_quote_kobo is not None else None,
+        estimated_total_ngn=(order.total_kobo + order.shipping_quote_kobo) // 100 if order.shipping_quote_kobo is not None else None,
+        shipping_quoted_at=aware(order.shipping_quoted_at),
         items=[OrderItemResponse(
             product_id=item.product_id, product_name=item.product_name, size=item.size,
             quantity=item.quantity, unit_price_ngn=item.unit_price_kobo // 100,
@@ -295,6 +298,30 @@ def admin_orders(limit: int = Query(20, ge=1, le=100), offset: int = Query(0, ge
     rows = db.scalars(select(Order).order_by(Order.created_at.desc(), Order.id.desc())
                       .offset(offset).limit(limit)).all()
     return [AdminOrderResponse(**order_out(o).model_dump(), user_id=o.user_id) for o in rows]
+
+
+@app.put('/api/v1/admin/orders/{order_id}/delivery-quote', response_model=AdminOrderResponse)
+def admin_quote_delivery(order_id: str, body: DeliveryQuoteRequest,
+                         db: Session = Depends(get_db), admin: User = Depends(get_current_admin)):
+    """Admin-only delivery estimate, visible to the buyer. Never a payment receipt."""
+    order = db.scalar(select(Order).where(Order.id == order_id).with_for_update())
+    if order is None:
+        raise HTTPException(404, 'Enquiry not found')
+    if order.status != 'draft' or not order.delivery_destination:
+        raise HTTPException(409, 'Only active enquiries with a delivery destination can be quoted')
+    quote_kobo = body.shipping_amount_ngn * 100
+    if order.shipping_quote_kobo != quote_kobo:
+        db.add(DeliveryQuoteAudit(
+            order_id=order.id, admin_user_id=admin.id,
+            previous_amount_kobo=order.shipping_quote_kobo,
+            new_amount_kobo=quote_kobo,
+        ))
+        order.shipping_quote_kobo = quote_kobo
+        from .models import utcnow
+        order.shipping_quoted_at = utcnow()
+        db.commit()
+        db.refresh(order)
+    return AdminOrderResponse(**order_out(order).model_dump(), user_id=order.user_id)
 
 
 @app.post('/api/v1/admin/reservations/release-expired')

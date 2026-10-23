@@ -29,7 +29,8 @@ def check_readiness() -> list[str]:
             checks = {
                 'users': {'id', 'email', 'is_admin'},
                 'products': {'id', 'price_kobo'},
-                'orders': {'id', 'status', 'reserved_until', 'client_request_id', 'delivery_destination'},
+                'orders': {'id', 'status', 'reserved_until', 'client_request_id', 'delivery_destination', 'shipping_quote_kobo', 'shipping_quoted_at'},
+                'delivery_quote_audit': {'id', 'order_id', 'admin_user_id', 'new_amount_kobo'},
                 'order_items': {'order_id', 'product_id'},
                 'product_inventory': {'product_id', 'size', 'quantity'},
                 'saved_items': {'user_id', 'product_id', 'size', 'quantity'},
