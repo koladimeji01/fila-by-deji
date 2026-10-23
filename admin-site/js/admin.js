@@ -95,7 +95,7 @@ async function uploadProductWithPhoto(details, file){
     submit.disabled=true;
     status.textContent='Creating your account…';
     try{
-      const account=await apiRequest('/auth/register',{
+      const account=await apiRequest('/staff/register',{
         method:'POST',body:{name,email,password}
       });
       if(!account?.id)throw new Error('Registration could not be confirmed.');
@@ -104,8 +104,8 @@ async function uploadProductWithPhoto(details, file){
       showAuthPanel('login');
       $a('admin-email').value=email;
       $a('admin-login-feedback').textContent=
-        'Account created. Ask the business owner to approve staff access before signing in.';
-      feedback('Account created successfully. Business dashboard access is restricted until an administrator approves your account.','success');
+        'Staff request submitted. A staff manager can now review it in the Staff Management dashboard.';
+      feedback('Staff request submitted. Your account is pending staff-manager approval.','success');
     }catch(error){
       status.textContent='Unable to create account: '+error.message;
     }finally{
@@ -518,11 +518,103 @@ async function uploadProductWithPhoto(details, file){
     }catch(error){feedback('Unable to load enquiries: '+error.message,'error');throw error;}
     finally{loading=false;button.disabled=false;}
   }
+  async function loadStaffManagement(){
+    const panel=$a('admin-staff-section'),nav=$a('admin-staff-nav');
+    const list=$a('admin-staff-list'),stats=$a('admin-staff-summary'),status=$a('admin-staff-feedback');
+    let accounts;
+    try{
+      accounts=await apiRequest('/admin/staff',{authorize:true});
+    }catch(error){
+      panel.hidden=true;nav.hidden=true;
+      if(error.message==='Staff management permission required')return;
+      throw error;
+    }
+    panel.hidden=false;nav.hidden=false;
+    if(!Array.isArray(accounts))throw new Error('Invalid staff-management response');
+    status.textContent='Showing '+accounts.length+' staff accounts and applications. Only staff managers may approve access.';
+    list.replaceChildren();stats.replaceChildren();
+    for(const [caption,value] of [
+      ['Pending requests',accounts.filter(a=>a.status==='pending').length],
+      ['Approved staff',accounts.filter(a=>a.is_admin).length],
+      ['Rejected requests',accounts.filter(a=>a.status==='rejected').length],
+      ['Revoked access',accounts.filter(a=>a.status==='revoked').length],
+    ]){
+      const card=node('article','admin-stat');
+      card.append(node('span','',caption),node('strong','',value));
+      stats.append(card);
+    }
+    const statuses={pending:'Awaiting approval',approved:'Approved staff',rejected:'Not approved',revoked:'Access revoked'};
+    for(const account of accounts){
+      const card=node('article','admin-staff-card');
+      const content=node('div','admin-staff-card__details');
+      const heading=node('div','admin-staff-card__title');
+      heading.append(node('h3','',account.name));
+      heading.append(node('span','admin-status-pill',''+(account.can_manage_staff?'Staff manager':(statuses[account.status]||account.status))));
+      content.append(heading,node('p','admin-muted',account.email));
+      if(account.requested_at){
+        const date=new Date(account.requested_at);
+        if(!Number.isNaN(date.getTime()))content.append(node('p','admin-muted','Requested '+date.toLocaleString('en-NG',{dateStyle:'medium',timeStyle:'short'})));
+      }
+      const actions=node('div','admin-staff-card__actions');
+      const decisions=account.status==='pending'?[
+        ['approve','Approve','button button--gold'],
+        ['reject','Reject','button button--outline'],
+      ]:(account.is_admin&&!account.can_manage_staff)?[
+        ['revoke','Revoke access','button button--outline'],
+      ]:[];
+      for(const [action,label,style] of decisions){
+        const button=node('button',style+' admin-small-button',label);
+        button.type='button';
+        button.addEventListener('click',async()=>{
+          const descriptions={
+            approve:'Approve '+account.name+' for business operations? This does NOT give staff-management privileges.',
+            reject:'Reject staff access for '+account.name+'?',
+            revoke:'Revoke business dashboard access for '+account.name+'? This will not delete their customer account.',
+          };
+          if(!window.confirm(descriptions[action]))return;
+          button.disabled=true;
+          try{
+            await apiRequest('/admin/staff/'+encodeURIComponent(account.user_id)+'/decision',{
+              method:'POST',authorize:true,body:{action}
+            });
+            await loadStaffManagement();
+            feedback('Staff access updated successfully.','success');
+          }catch(error){
+            status.textContent='Unable to change access: '+error.message;
+            button.disabled=false;
+          }
+        });
+        actions.append(button);
+      }
+      card.append(content,actions);list.append(card);
+    }
+    if(!accounts.length)list.append(node('p','admin-muted','No staff applications yet. Registered requests will appear here.'));
+  }
+  async function requestExistingStaffAccess(){
+    const state=$a('admin-login-feedback'),button=$a('admin-request-existing');
+    const email=$a('admin-email').value.trim(),password=$a('admin-password').value;
+    const form=$a('admin-login-form');
+    if(!form.reportValidity())return;
+    button.disabled=true;state.textContent='Checking your account…';
+    try{
+      const session=await apiRequest('/auth/login',{method:'POST',body:{email,password}});
+      if(!session.access_token)throw new Error('Authentication did not return a session');
+      storeToken(session.access_token);
+      const outcome=await apiRequest('/staff/apply',{method:'POST',authorize:true});
+      state.textContent=outcome.message||'Request submitted for approval.';
+      feedback(state.textContent,'success');
+    }catch(error){
+      state.textContent='Unable to request access: '+error.message;
+    }finally{
+      storeToken('');
+      button.disabled=false;
+    }
+  }
   async function loadDashboard(){
     const allowed=await verified();if(!allowed)return;
     feedback('Loading inventory and enquiries…');
     offset=0;$a('admin-order-list').replaceChildren();
-    const results=await Promise.allSettled([loadProducts(),loadInventory(),loadOrders(),loadReports(),loadStaff()]);
+    const results=await Promise.allSettled([loadProducts(),loadInventory(),loadOrders(),loadReports(),loadStaff(),loadStaffManagement()]);
     const failures=results.filter(result=>result.status==='rejected');
     if(failures.length){
       feedback('Some sections could not load. Please refresh. '+failures.map(x=>x.reason?.message||'Service error').join('; '),'error');
@@ -536,6 +628,8 @@ async function uploadProductWithPhoto(details, file){
     $a('admin-show-signup').addEventListener('click',()=>showAuthPanel('signup'));
     $a('admin-show-login').addEventListener('click',()=>showAuthPanel('login'));
     $a('admin-signup-form').addEventListener('submit',submitSignup);
+    $a('admin-request-existing').addEventListener('click',requestExistingStaffAccess);
+    $a('admin-staff-refresh').addEventListener('click',loadStaffManagement);
     $a('admin-refresh').addEventListener('click',loadDashboard);
     $a('admin-more-orders').addEventListener('click',loadOrders);
     $a('admin-open-add-product').addEventListener('click',()=>toggleProductCreator($a('admin-create-product').hidden));
@@ -564,6 +658,9 @@ async function uploadProductWithPhoto(details, file){
       reportRows=[];
       $a('admin-report-stats').replaceChildren();
       $a('admin-product-list').replaceChildren();
+      $a('admin-staff-section').hidden=true;
+      $a('admin-staff-nav').hidden=true;
+      $a('admin-staff-list').replaceChildren();
       $a('admin-staff-name').textContent='—';
       $a('admin-staff-email').textContent='—';
       feedback('Signed out of the staff dashboard.','notice');
@@ -586,7 +683,12 @@ async function uploadProductWithPhoto(details, file){
         const granted=await loadDashboard();
         if(!granted){
           storeToken('');
-          state.textContent='This account is not authorized to manage FÌLÀ. Contact the owner.';
+          try{
+            const application=await apiRequest('/staff/status',{authorize:true});
+            state.textContent=application.message;
+          }catch{
+            state.textContent='This account is not authorized to manage FÌLÀ. Contact the owner.';
+          }
           return;
         }
         form.reset();state.textContent='';
