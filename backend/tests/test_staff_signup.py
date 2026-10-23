@@ -17,7 +17,7 @@ def test_business_signup_form_is_present_and_uses_existing_registration_api():
     ):
         assert f'id="{target}"' in page
     assert 'minlength="12"' in page
-    assert "apiRequest('/auth/register'" in script
+    assert "apiRequest('/staff/register'" in script
     assert "body:{name,email,password}" in script
     assert 'password!==confirmation' in script
     assert "showAuthPanel('signup')" in script
@@ -34,7 +34,7 @@ def test_new_business_signup_cannot_access_admin_until_explicit_approval(client)
         'email': 'newstaff@example.com',
         'password': 'strong-long-secret-12345',
     }
-    created = client.post('/api/v1/auth/register', json=request)
+    created = client.post('/api/v1/staff/register', json=request)
     assert created.status_code == 201, created.text
     login = client.post('/api/v1/auth/login', json={
         'email': request['email'], 'password': request['password']
@@ -44,9 +44,12 @@ def test_new_business_signup_cannot_access_admin_until_explicit_approval(client)
     assert client.get('/api/v1/admin/overview', headers=headers).status_code == 403
     assert client.get('/api/v1/admin/products', headers=headers).status_code == 403
     with SessionLocal() as db:
+        from app.models import StaffApplication
         user = db.query(User).filter_by(email=request['email']).one()
         assert user.is_active
         assert not user.is_admin
+        assert not user.can_manage_staff
+        assert db.get(StaffApplication,user.id).status == 'pending'
     rejected = client.post('/api/v1/auth/register', json={
         'name': 'Intruder',
         'email': 'anotherstaff@example.com',
