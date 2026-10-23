@@ -125,10 +125,11 @@ class AdminProductUpdateRequest(BaseModel):
 
     @field_validator('name', 'category', 'description')
     @classmethod
-    def normalise_text(cls, value: str) -> str:
+    def normalise_text(cls, value: str, info) -> str:
         cleaned = ' '.join(value.split())
-        if not cleaned:
-            raise ValueError('Field cannot be blank')
+        min_length = 5 if info.field_name == 'description' else 2
+        if len(cleaned) < min_length:
+            raise ValueError('Field is too short after removing whitespace')
         return cleaned
 
 
