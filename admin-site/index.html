@@ -44,6 +44,26 @@
     <button class="button button--gold" type="submit" id="admin-login-submit">Secure sign in</button>
   </form>
   <p id="admin-login-feedback" role="status" aria-live="polite"></p>
+  <p class="admin-auth-switch">New to the team? <button type="button" class="admin-auth-link" id="admin-show-signup">Create a staff account</button></p>
+</section>
+<section id="admin-signup" class="admin-login" aria-labelledby="staff-signup-title" hidden>
+  <span class="eyebrow">STAFF REGISTRATION</span>
+  <h2 id="staff-signup-title">Create staff account</h2>
+  <p>Register with your work details. For security, an existing administrator must approve your access before you can manage the business.</p>
+  <form id="admin-signup-form" autocomplete="on">
+    <label for="admin-signup-name">Full name</label>
+    <input id="admin-signup-name" name="name" type="text" autocomplete="name" minlength="2" maxlength="100" required placeholder="Your full name">
+    <label for="admin-signup-email">Email address</label>
+    <input id="admin-signup-email" name="email" type="email" autocomplete="email" maxlength="254" required placeholder="you@example.com">
+    <label for="admin-signup-password">Password</label>
+    <input id="admin-signup-password" name="new-password" type="password" autocomplete="new-password" minlength="12" maxlength="128" required placeholder="At least 12 characters" aria-describedby="admin-password-help">
+    <p id="admin-password-help" class="admin-password-help">Use a strong, unique password with at least 12 characters.</p>
+    <label for="admin-signup-confirm">Confirm password</label>
+    <input id="admin-signup-confirm" name="confirm-password" type="password" autocomplete="new-password" minlength="12" maxlength="128" required placeholder="Enter the password again">
+    <button class="button button--gold" type="submit" id="admin-signup-submit">Create account</button>
+  </form>
+  <p id="admin-signup-feedback" role="status" aria-live="polite"></p>
+  <p class="admin-auth-switch">Already registered? <button type="button" class="admin-auth-link" id="admin-show-login">Sign in</button></p>
 </section>
 <p id="admin-status" class="admin-alert" role="status" aria-live="polite">Only authorized FÌLÀ staff can access the business dashboard.</p>
  <div id="admin-content" hidden>
