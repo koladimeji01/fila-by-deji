@@ -21,6 +21,34 @@ class User(Base):
     orders: Mapped[list['Order']] = relationship(back_populates='user')
 
 
+class StaffApplication(Base):
+    """Only explicit staff requests are eligible for role changes."""
+    __tablename__ = 'staff_applications'
+    user_id: Mapped[str] = mapped_column(
+        ForeignKey('users.id', ondelete='CASCADE'), primary_key=True
+    )
+    status: Mapped[str] = mapped_column(String(16), nullable=False, default='pending')
+    requested_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False, default=utcnow)
+    reviewed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    reviewed_by: Mapped[str | None] = mapped_column(ForeignKey('users.id', ondelete='SET NULL'), nullable=True)
+    __table_args__ = (CheckConstraint(
+        "status IN ('pending','approved','rejected','revoked')", name='ck_staff_application_status'
+    ),)
+
+
+class StaffAccessAudit(Base):
+    """Immutable account-approval and access-revocation log."""
+    __tablename__ = 'staff_access_audit'
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=lambda: str(uuid4()))
+    subject_user_id: Mapped[str] = mapped_column(ForeignKey('users.id', ondelete='RESTRICT'), nullable=False)
+    actor_user_id: Mapped[str] = mapped_column(ForeignKey('users.id', ondelete='RESTRICT'), nullable=False)
+    action: Mapped[str] = mapped_column(String(16), nullable=False)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False, default=utcnow)
+    __table_args__ = (CheckConstraint(
+        "action IN ('approved','rejected','revoked')", name='ck_staff_audit_action'
+    ),)
+
+
 class Product(Base):
     __tablename__ = 'products'
     id: Mapped[str] = mapped_column(String(60), primary_key=True)
