@@ -1,6 +1,6 @@
 from datetime import datetime, timezone
 from uuid import uuid4
-from sqlalchemy import Boolean, CheckConstraint, DateTime, ForeignKey, Integer, String, Text
+from sqlalchemy import Boolean, CheckConstraint, DateTime, ForeignKey, Integer, LargeBinary, String, Text
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 from .database import Base
 
@@ -32,6 +32,20 @@ class Product(Base):
     is_active: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True)
     stock_levels: Mapped[list['ProductInventory']] = relationship(back_populates='product', cascade='all, delete-orphan', lazy='selectin')
     __table_args__ = (CheckConstraint('price_kobo > 0', name='ck_product_positive_price'),)
+
+
+class ProductPhoto(Base):
+    """Optimized photo bytes stored in Postgres, keyed by its catalog product.
+
+    This is deliberately not exposed to Supabase's public Data API.
+    """
+    __tablename__ = 'product_photos'
+    product_id: Mapped[str] = mapped_column(
+        ForeignKey('products.id', ondelete='CASCADE'), primary_key=True
+    )
+    image_data: Mapped[bytes] = mapped_column(LargeBinary, nullable=False)
+    mime_type: Mapped[str] = mapped_column(String(32), nullable=False, default='image/webp')
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False, default=utcnow)
 
 
 class Order(Base):
