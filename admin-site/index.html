@@ -102,7 +102,7 @@
     <button id="admin-open-add-product" type="button" class="button button--gold" aria-expanded="false" aria-controls="admin-create-product">+ Add new product</button>
    </div>
    <form id="admin-create-product" class="admin-create-product" hidden aria-labelledby="admin-create-product-heading">
-    <div class="admin-section__heading"><div><h3 id="admin-create-product-heading">Add a cap to FÌLÀ</h3><p>Complete the details. New products use a public HTTPS photo link.</p></div>
+    <div class="admin-section__heading"><div><h3 id="admin-create-product-heading">Add a cap to FÌLÀ</h3><p>Complete the details, then upload a photo from your device or use a public HTTPS photo link.</p></div>
       <button type="button" class="button button--outline admin-small-button" id="admin-cancel-add-product">Cancel</button>
     </div>
     <div class="admin-add-grid">
@@ -111,10 +111,30 @@
       <datalist id="admin-product-categories"><option value="Ceremonial"></option><option value="Classic"></option><option value="Premium"></option></datalist>
       <label class="admin-form-field" for="admin-new-price"><span>Price (₦)</span><input id="admin-new-price" type="number" min="100" max="10000000" step="1" required placeholder="10000"></label>
       <label class="admin-form-field admin-add-field-wide" for="admin-new-description"><span>Description</span><textarea id="admin-new-description" required minlength="5" maxlength="2000" rows="3" placeholder="Describe the material, style and occasions"></textarea></label>
-      <label class="admin-form-field admin-add-field-wide" for="admin-new-image"><span>Public product photo URL</span>
-        <input id="admin-new-image" type="url" required maxlength="300" placeholder="https://your-image-host.com/cap-photo.jpg" aria-describedby="admin-image-guide">
-      </label>
-      <p id="admin-image-guide" class="admin-muted admin-add-field-wide">Paste a public HTTPS image link ending in .jpg, .jpeg, .png or .webp. Host the image before adding the product. Local photo uploads are not yet enabled.</p>
+      <fieldset class="admin-photo-chooser admin-add-field-wide">
+        <legend>Product photo</legend>
+        <div class="admin-photo-source-choices" role="group" aria-label="Choose image source">
+          <label><input type="radio" name="admin-photo-source" id="admin-photo-device" value="device" checked> Upload from device</label>
+          <label><input type="radio" name="admin-photo-source" id="admin-photo-link" value="url"> Use image URL</label>
+        </div>
+        <div id="admin-photo-device-panel" class="admin-photo-source-panel">
+          <label class="admin-form-field" for="admin-new-photo-file">
+            <span>Choose photo from phone or computer</span>
+            <input id="admin-new-photo-file" type="file" accept="image/jpeg,image/png,image/webp,.jpg,.jpeg,.png,.webp" aria-describedby="admin-photo-device-hint" required>
+          </label>
+          <p class="admin-muted" id="admin-photo-device-hint">JPEG, PNG or WebP, maximum 5 MB. The photo is automatically optimized for the website.</p>
+          <div id="admin-photo-preview-wrap" class="admin-photo-preview" hidden>
+            <img id="admin-photo-preview" alt="Selected cap photo preview" hidden>
+            <span id="admin-photo-filename" class="admin-muted"></span>
+          </div>
+        </div>
+        <div id="admin-photo-url-panel" class="admin-photo-source-panel" hidden>
+          <label class="admin-form-field" for="admin-new-image"><span>Public product photo URL</span>
+            <input id="admin-new-image" type="url" maxlength="300" placeholder="https://your-image-host.com/cap-photo.jpg" aria-describedby="admin-image-guide">
+          </label>
+          <p id="admin-image-guide" class="admin-muted">Paste a public HTTPS image link ending in .jpg, .jpeg, .png or .webp.</p>
+        </div>
+      </fieldset>
     </div>
     <fieldset class="admin-add-stock">
       <legend>Available stock per size</legend>
