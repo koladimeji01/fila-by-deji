@@ -64,7 +64,7 @@ function catalogImage(product){
     try{
       const url=new URL(product.image_url);
       if(url.protocol==='https:' && !url.username && !url.password &&
-         /\\.(?:jpg|jpeg|png|webp)$/i.test(url.pathname)) return url.href;
+         /\.(?:jpg|jpeg|png|webp)$/i.test(url.pathname)) return url.href;
     }catch{/* invalid URL: display the standard missing-image fallback */}
   }
   return local;
