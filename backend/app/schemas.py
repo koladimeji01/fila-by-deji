@@ -46,6 +46,7 @@ class ProductResponse(BaseModel):
     image_url: str
     # Only sizes with positive stock are advertised as available.
     available_sizes: list[str] = Field(default_factory=list)
+    stock_by_size: dict[str, int] = Field(default_factory=dict)
 
 
 class OrderItemInput(BaseModel):
