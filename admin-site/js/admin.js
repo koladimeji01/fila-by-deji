@@ -181,7 +181,9 @@ async function uploadProductWithPhoto(details, file){
     $a('admin-photo-device-panel').hidden=!device;
     $a('admin-photo-url-panel').hidden=device;
     $a('admin-new-photo-file').required=device;
+    $a('admin-new-photo-file').disabled=!device;
     $a('admin-new-image').required=!device;
+    $a('admin-new-image').disabled=device;
     $a('admin-create-feedback').textContent='';
   }
   function previewDevicePhoto(){
