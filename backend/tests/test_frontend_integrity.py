@@ -7,7 +7,7 @@ PAGES = sorted(ROOT.glob('*.html'))
 
 
 def test_every_page_loads_site_script_and_styles():
-    assert len(PAGES) == 11
+    assert len(PAGES) == 12
     for page in PAGES:
         markup = page.read_text(encoding='utf-8')
         assert 'href="css/style.css"' in markup, page.name
@@ -214,3 +214,24 @@ def test_stage3_admin_quote_is_read_only_for_customer_until_confirmed():
     assert 'NOT paid' in js
     assert 'Confirm quote on WhatsApp' in js
     assert 'encodeURIComponent(msg)' in js
+
+
+def test_staff_dashboard_is_static_only_and_server_authorized():
+    page=(ROOT/'admin.html').read_text()
+    script=(ROOT/'js/admin.js').read_text()
+    builder=(ROOT/'scripts/build-storefront.cjs').read_text()
+    ci=(ROOT/'.github/workflows/backend-ci.yml').read_text()
+    assert 'data-page="admin"' in page
+    assert 'meta name="robots" content="noindex,nofollow"' in page
+    assert 'id="admin-content" hidden' in page
+    assert 'src="js/admin.js"' in page
+    assert "apiRequest('/admin/overview',{authorize:true})" in script
+    assert "apiRequest('/admin/inventory',{authorize:true})" in script
+    assert "'/admin/orders?limit=20&offset='" in script
+    assert 'method:\'PUT\',authorize:true' in script
+    assert "client_request_id" not in page
+    assert "innerHTML" not in script
+    assert "revenue" not in page.lower()
+    assert "'admin.html'" in builder
+    assert "'js/admin.js'" in builder
+    assert 'node --check js/admin.js' in ci

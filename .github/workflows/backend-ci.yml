@@ -45,11 +45,15 @@ jobs:
         working-directory: backend
         run: python -m pytest -q
       - name: JavaScript syntax check
-        run: node --check js/app.js
+        run: |
+          node --check js/app.js
+          node --check js/admin.js
       - name: Verify static Vercel storefront build
         run: |
           npm run build
           test -f dist/index.html
+          test -f dist/admin.html
+          test -f dist/js/admin.js
           test -f dist/css/style.css
           test -f dist/assets/hero.png
           test ! -e dist/backend
