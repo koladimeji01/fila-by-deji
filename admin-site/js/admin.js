@@ -53,7 +53,7 @@ async function apiRequest(path,{method='GET',body,authorize=false}={}){
     event.preventDefault();
     const form=$a('admin-signup-form');
     if(!form.reportValidity())return;
-    const name=$a('admin-signup-name').value.trim().replace(/\\s+/g,' ');
+    const name=$a('admin-signup-name').value.trim().replace(/\s+/g,' ');
     const email=$a('admin-signup-email').value.trim();
     const password=$a('admin-signup-password').value;
     const confirmation=$a('admin-signup-confirm').value;
@@ -170,7 +170,7 @@ async function apiRequest(path,{method='GET',body,authorize=false}={}){
     try{
       const photo=new URL(fields.image_url);
       if(photo.protocol!=='https:' || photo.username || photo.password ||
-         !/\\.(jpg|jpeg|png|webp)$/i.test(photo.pathname))throw new Error();
+         !/\.(jpg|jpeg|png|webp)$/i.test(photo.pathname))throw new Error();
     }catch{
       status.textContent='Use a public HTTPS photo URL ending with .jpg, .jpeg, .png or .webp.';return;
     }
