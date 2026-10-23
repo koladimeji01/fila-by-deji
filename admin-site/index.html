@@ -1,0 +1,83 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta name="theme-color" content="#292929">
+  <meta name="robots" content="noindex,nofollow,noarchive">
+  <meta name="description" content="Private FÌLÀ by Deji staff administration portal.">
+  <title>Business Administration | FÌLÀ by Deji</title>
+  <link rel="icon" href="assets/favicon.svg" type="image/svg+xml">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Jacques+Francois&display=swap" rel="stylesheet">
+  <link href="css/style.css" rel="stylesheet">
+  <script src="js/admin.js" defer></script>
+</head>
+<body data-page="admin">
+<a class="skip-link" href="#main">Skip to content</a>
+<header class="site-header site-header--solid"><div class="wrap header-inner">
+  <a href="https://fila-by-deji.vercel.app/" class="brand" aria-label="FÌLÀ by Deji customer store">
+    <img src="assets/fila-logo.svg" width="80" height="80" alt="FÌLÀ by Deji">
+  </a>
+  <div class="admin-portal-title"><strong>Business Administration</strong><small>Staff workspace · Restricted access</small></div>
+  <a class="text-link admin-store-link" href="https://fila-by-deji.vercel.app/" rel="noopener noreferrer">Customer website ↗</a>
+</div></header>
+<main id="main" class="admin-main">
+<section class="page-intro page-intro--short">
+<div class="wrap">
+ <div class="breadcrumbs"><a href="index.html">Home</a><span>/</span><span>Business</span></div>
+ <span class="eyebrow">STAFF ONLY</span><h1>Business dashboard</h1>
+ <p>Manage FÌLÀ inventory, unpaid enquiries and delivery quotes. No online payments are enabled.</p>
+</div>
+</section>
+<section class="wrap admin-workspace" aria-label="Business administration">
+ <section id="admin-login" class="admin-login" aria-labelledby="staff-login-title">
+  <span class="eyebrow">AUTHORIZED ACCESS</span>
+  <h2 id="staff-login-title">Staff sign in</h2>
+  <p>Use your verified FÌLÀ staff account. Customer accounts do not have access to business information.</p>
+  <form id="admin-login-form" autocomplete="on">
+    <label for="admin-email">Email address</label>
+    <input id="admin-email" type="email" autocomplete="username" required maxlength="254" placeholder="Staff email">
+    <label for="admin-password">Password</label>
+    <input id="admin-password" type="password" autocomplete="current-password" required placeholder="Account password">
+    <button class="button button--gold" type="submit" id="admin-login-submit">Secure sign in</button>
+  </form>
+  <p id="admin-login-feedback" role="status" aria-live="polite"></p>
+</section>
+<p id="admin-status" class="admin-alert" role="status" aria-live="polite">Only authorized FÌLÀ staff can access the business dashboard.</p>
+ <div id="admin-content" hidden>
+  <div class="admin-toolbar">
+   <p><strong>FÌLÀ operations</strong><span class="admin-muted"> · secure API permissions apply to every action</span></p>
+   <div class="admin-toolbar__buttons">
+    <button type="button" id="admin-refresh" class="button button--dark">Refresh information</button>
+    <button type="button" id="admin-signout" class="button button--outline">Sign out</button>
+   </div>
+  </div>
+  <section aria-labelledby="admin-overview-title">
+   <h2 id="admin-overview-title">Operations overview</h2>
+   <div class="admin-stats">
+    <article class="admin-stat"><span>Active products</span><strong id="admin-active-products">—</strong></article>
+    <article class="admin-stat"><span>Available units</span><strong id="admin-available-units">—</strong></article>
+    <article class="admin-stat"><span>Unpaid enquiries</span><strong id="admin-enquiries">—</strong></article>
+    <article class="admin-stat"><span>Awaiting delivery quote</span><strong id="admin-unquoted">—</strong></article>
+    <article class="admin-stat"><span>Quoted enquiries</span><strong id="admin-quoted">—</strong></article>
+    <article class="admin-stat"><span>Out-of-stock sizes</span><strong id="admin-out-of-stock">—</strong></article>
+   </div>
+   <p class="admin-muted">These counts are operational activity only. They do not represent paid orders or revenue.</p>
+  </section>
+  <section class="admin-section" aria-labelledby="admin-inventory-title">
+   <div class="admin-section__heading"><div><h2 id="admin-inventory-title">Available inventory</h2><p>Adjust available units per size. Changes appear in the public catalog.</p></div></div>
+   <div class="admin-table-scroll"><table class="admin-table"><thead><tr><th scope="col">Cap</th><th scope="col">Size</th><th scope="col">Available units</th><th scope="col">Update</th></tr></thead><tbody id="admin-stock-rows"></tbody></table></div>
+  </section>
+  <section class="admin-section" aria-labelledby="admin-orders-title">
+   <div class="admin-section__heading"><div><h2 id="admin-orders-title">Customer enquiries and selections</h2><p>Only draft enquiries with a destination can receive a delivery quote. Quotes do not confirm a purchase.</p></div></div>
+   <div id="admin-order-list" class="admin-order-list"></div>
+   <button type="button" id="admin-more-orders" class="button button--dark" hidden>Load more</button>
+  </section>
+ </div>
+ <p class="admin-disclaimer">The private business data shown here is provided only after FastAPI verifies your administrator permissions. Payment collection is disabled. <a href="https://fila-by-deji.vercel.app/">Visit customer store ↗</a></p>
+</section>
+</main>
+<footer class="admin-footer"><div class="wrap">© 2026 FÌLÀ by Deji · Staff-only operations · Never treat an enquiry as a payment.</div></footer>
+</body></html>

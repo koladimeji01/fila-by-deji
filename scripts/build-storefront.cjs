@@ -7,10 +7,10 @@ const root = path.resolve(__dirname, '..');
 const destination = path.join(root, 'dist');
 const pages = [
   'index.html', 'collection.html', 'details.html', 'cart.html', 'checkout.html',
-  'about.html', 'contact.html', 'orders.html', 'login.html', 'register.html', 'profile.html', 'admin.html',
+  'about.html', 'contact.html', 'orders.html', 'login.html', 'register.html', 'profile.html',
 ];
 const files = [
-  ...pages, 'css/style.css', 'js/app.js', 'js/admin.js',
+  ...pages, 'css/style.css', 'js/app.js',
   'assets/ceremonial.jpg', 'assets/classic.jpg', 'assets/premium.jpg',
   'assets/hero.png', 'assets/fila-logo.png', 'assets/fila-logo.svg',
   'assets/favicon.svg',

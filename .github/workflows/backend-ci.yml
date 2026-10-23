@@ -12,6 +12,8 @@ on:
       - 'css/**'
       - '*.html'
       - 'assets/**'
+      - 'admin-site/**'
+      - 'admin-site/**'
       - '.github/workflows/backend-ci.yml'
   pull_request:
     paths:
@@ -47,13 +49,16 @@ jobs:
       - name: JavaScript syntax check
         run: |
           node --check js/app.js
-          node --check js/admin.js
+          node --check admin-site/js/admin.js
       - name: Verify static Vercel storefront build
         run: |
           npm run build
           test -f dist/index.html
-          test -f dist/admin.html
-          test -f dist/js/admin.js
+          test ! -e dist/admin.html
+          test ! -e dist/js/admin.js
+          (cd admin-site && node build.cjs)
+          test -f admin-site/dist/index.html
+          test -f admin-site/dist/js/admin.js
           test -f dist/css/style.css
           test -f dist/assets/hero.png
           test ! -e dist/backend

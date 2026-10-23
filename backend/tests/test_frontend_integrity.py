@@ -7,7 +7,7 @@ PAGES = sorted(ROOT.glob('*.html'))
 
 
 def test_every_page_loads_site_script_and_styles():
-    assert len(PAGES) == 12
+    assert len(PAGES) == 11
     for page in PAGES:
         markup = page.read_text(encoding='utf-8')
         assert 'href="css/style.css"' in markup, page.name
@@ -216,23 +216,30 @@ def test_stage3_admin_quote_is_read_only_for_customer_until_confirmed():
     assert 'encodeURIComponent(msg)' in js
 
 
-def test_staff_dashboard_is_static_only_and_server_authorized():
-    page=(ROOT/'admin.html').read_text()
-    script=(ROOT/'js/admin.js').read_text()
-    builder=(ROOT/'scripts/build-storefront.cjs').read_text()
-    ci=(ROOT/'.github/workflows/backend-ci.yml').read_text()
+def test_business_site_is_independently_built_and_not_on_customer_store():
+    admin = ROOT/'admin-site'
+    page = (admin/'index.html').read_text()
+    script = (admin/'js/admin.js').read_text()
+    builder = (admin/'build.cjs').read_text()
+    config = (admin/'vercel.json').read_text()
+    storefront = (ROOT/'scripts/build-storefront.cjs').read_text()
     assert 'data-page="admin"' in page
-    assert 'meta name="robots" content="noindex,nofollow"' in page
+    assert 'id="admin-login-form"' in page
     assert 'id="admin-content" hidden' in page
     assert 'src="js/admin.js"' in page
+    assert 'src="js/app.js"' not in page
     assert "apiRequest('/admin/overview',{authorize:true})" in script
     assert "apiRequest('/admin/inventory',{authorize:true})" in script
-    assert "'/admin/orders?limit=20&offset='" in script
-    assert 'method:\'PUT\',authorize:true' in script
-    assert "client_request_id" not in page
-    assert "innerHTML" not in script
-    assert 'id="admin-revenue"' not in page
-    assert 'These counts are operational activity only.' in page
-    assert "'admin.html'" in builder
+    assert "apiRequest('/auth/login',{method:'POST'" in script
+    assert 'sessionStorage' in script
+    assert 'localStorage' not in script
+    assert 'innerHTML' not in script
+    assert 'admin.html' not in storefront
+    assert "'js/admin.js'" not in storefront
     assert "'js/admin.js'" in builder
-    assert 'node --check js/admin.js' in ci
+    assert 'noindex' in config
+    assert 'frame-ancestors' in config
+    assert not (ROOT/'admin.html').exists()
+    assert not (ROOT/'js/admin.js').exists()
+    ci=(ROOT/'.github/workflows/backend-ci.yml').read_text()
+    assert 'node --check admin-site/js/admin.js' in ci

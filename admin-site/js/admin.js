@@ -1,4 +1,22 @@
 'use strict';
+// Independently deployed admin portal; no customer storefront scripts or secrets.
+const API_BASE='https://fila-by-deji-api.onrender.com/api/v1';
+const ADMIN_AUTH_KEY='fila_admin_access_token_v1';
+function token(){try{return sessionStorage.getItem(ADMIN_AUTH_KEY)||''}catch{return ''}}
+function storeToken(v){try{if(v)sessionStorage.setItem(ADMIN_AUTH_KEY,v);else sessionStorage.removeItem(ADMIN_AUTH_KEY)}catch{}}
+async function apiRequest(path,{method='GET',body,authorize=false}={}){
+ const headers={'Accept':'application/json'};
+ if(body!==undefined)headers['Content-Type']='application/json';
+ if(authorize){const t=token();if(!t)throw new Error('Staff sign-in required');headers.Authorization='Bearer '+t;}
+ const response=await fetch(API_BASE+path,{method,headers,body:body===undefined?undefined:JSON.stringify(body),credentials:'omit',cache:'no-store'});
+ const payload=await response.json().catch(()=>({}));
+ if(!response.ok){
+   if(response.status===401&&authorize)storeToken('');
+   const message=typeof payload?.detail==='string'?payload.detail:(response.status===403?'Administrator privileges required':'Request failed ('+response.status+')');
+   throw new Error(message);
+ }
+ return payload;
+}
 /* FÌLÀ business operations. The backend enforces admin privileges on every
    endpoint. Nothing private is embedded in the static HTML or JavaScript. */
 (() => {
@@ -25,10 +43,12 @@
     try{
       const summary=await apiRequest('/admin/overview',{authorize:true});
       $a('admin-content').hidden=false;
+      $a('admin-login').hidden=true;
       displayOverview(summary);
       return true;
     }catch(error){
       $a('admin-content').hidden=true;
+      $a('admin-login').hidden=false;
       if(!token())feedback('Session expired. Sign in again to access the dashboard.','notice');
       else feedback(error.message==='Administrator privileges required'
         ? 'Access denied: this account is not authorized as FÌLÀ staff. Contact the account owner.'
@@ -178,8 +198,39 @@
     $a('admin-refresh').addEventListener('click',loadDashboard);
     $a('admin-more-orders').addEventListener('click',loadOrders);
     $a('admin-signout').addEventListener('click',()=>{
-      storeToken('');location.replace('login.html');
+      storeToken('');
+      $a('admin-content').hidden=true;
+      $a('admin-login').hidden=false;
+      $a('admin-login-form').reset();
+      feedback('Signed out of the staff dashboard.','notice');
     });
-    loadDashboard();
+    $a('admin-login-form').addEventListener('submit',async event=>{
+      event.preventDefault();
+      const form=$a('admin-login-form');
+      if(!form.reportValidity())return;
+      const submit=$a('admin-login-submit'),state=$a('admin-login-feedback');
+      submit.disabled=true;state.textContent='Authenticating staff account…';
+      try{
+        const session=await apiRequest('/auth/login',{method:'POST',body:{
+          email:$a('admin-email').value.trim(),
+          password:$a('admin-password').value,
+        }});
+        if(!session.access_token)throw new Error('Authentication did not return a session');
+        storeToken(session.access_token);
+        const granted=await verified();
+        if(!granted){
+          storeToken('');
+          state.textContent='This account is not authorized to manage FÌLÀ. Contact the owner.';
+          return;
+        }
+        form.reset();state.textContent='';
+        await loadDashboard();
+      }catch(error){
+        storeToken('');$a('admin-content').hidden=true;$a('admin-login').hidden=false;
+        state.textContent='Sign-in failed: '+error.message;
+      }finally{submit.disabled=false;}
+    });
+    if(token())loadDashboard();
+    else {$a('admin-login').hidden=false;feedback('Sign in as verified staff to continue.','notice');}
   });
 })();

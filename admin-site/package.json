@@ -1,0 +1,9 @@
+{
+  "name": "fila-by-deji-business-admin",
+  "private": true,
+  "version": "1.0.0",
+  "scripts": {
+    "build": "node build.cjs",
+    "check": "node --check js/admin.js"
+  }
+}

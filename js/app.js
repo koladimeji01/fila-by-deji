@@ -99,7 +99,7 @@ function updateAuthNavigation(){
   if(page==='profile'&&signedIn)link.setAttribute('aria-current','page');
   else link.removeAttribute('aria-current');
 }
-function safeNext(){const next=new URLSearchParams(location.search).get('next');return ['checkout.html','cart.html','index.html','collection.html','orders.html','profile.html','admin.html'].includes(next)?next:'index.html';}
+function safeNext(){const next=new URLSearchParams(location.search).get('next');return ['checkout.html','cart.html','index.html','collection.html','orders.html','profile.html'].includes(next)?next:'index.html';}
 async function initAuth(){
  const form=$('customer-auth-form');if(!form)return;
  const feedback=$('auth-feedback'),submit=$('auth-submit');
