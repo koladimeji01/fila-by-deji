@@ -1,7 +1,10 @@
+import io
+import json
 from contextlib import asynccontextmanager
+from PIL import Image, ImageOps, UnidentifiedImageError
 import re
 from uuid import uuid4
-from fastapi import Depends, FastAPI, HTTPException, Query, Request, Response, status
+from fastapi import Depends, FastAPI, File, Form, HTTPException, Query, Request, Response, UploadFile, status
 from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy import func, select, text, update
 from sqlalchemy.exc import IntegrityError
@@ -10,7 +13,7 @@ from sqlalchemy.orm import Session
 from .config import get_settings
 from .rate_limit import limit_request
 from .database import get_db
-from .models import Order, OrderItem, Product, ProductInventory, User, SavedItem, DeliveryQuoteAudit
+from .models import Order, OrderItem, Product, ProductInventory, ProductPhoto, User, SavedItem, DeliveryQuoteAudit
 from .schemas import (AdminOrderResponse, CreateDraftOrderRequest, LoginRequest, OrderItemResponse, OrderResponse,
                       ProductResponse, RegisterRequest, StockLevelResponse, StockUpdateRequest, TokenResponse, UserResponse,
                       SaveItemRequest, SavedItemResponse, DeliveryQuoteRequest, AdminOverviewResponse,
@@ -293,12 +296,115 @@ def admin_overview(db: Session = Depends(get_db), admin: User = Depends(get_curr
     )
 
 
+@app.get('/api/v1/product-images/{product_id}.webp')
+def public_product_photo(product_id: str, db: Session = Depends(get_db)):
+    """Serve only photos attached to products visible in the customer catalog."""
+    product = db.get(Product, product_id)
+    photo = db.get(ProductPhoto, product_id)
+    if product is None or not product.is_active or photo is None:
+        raise HTTPException(404, 'Product photo not found')
+    return Response(
+        content=photo.image_data,
+        media_type='image/webp',
+        headers={'Cache-Control': 'public, max-age=3600', 'X-Content-Type-Options': 'nosniff'},
+    )
+
+
 @app.get('/api/v1/admin/products', response_model=list[AdminProductResponse])
 def admin_products(db: Session = Depends(get_db), admin: User = Depends(get_current_admin)):
     """All catalog products, including archived products. Admin role is checked in DB."""
     expire_holds(db)
     products = db.scalars(select(Product).order_by(Product.id)).all()
     return [AdminProductResponse(**product_out(p).model_dump(), is_active=p.is_active) for p in products]
+
+
+MAX_UPLOAD_BYTES = 5 * 1024 * 1024
+MAX_IMAGE_PIXELS = 16_000_000
+MAX_SAVED_BYTES = 2 * 1024 * 1024
+
+
+def optimized_product_photo(payload: bytes, declared_type: str | None) -> bytes:
+    """Validate actual image format, cap decoder work, remove metadata, downscale."""
+    if not payload:
+        raise HTTPException(422, 'Choose a product photo to upload')
+    if len(payload) > MAX_UPLOAD_BYTES:
+        raise HTTPException(413, 'Image exceeds the 5 MB limit')
+    if declared_type not in {'image/jpeg', 'image/png', 'image/webp'}:
+        raise HTTPException(415, 'Only JPG, PNG and WebP photos are supported')
+    try:
+        with Image.open(io.BytesIO(payload)) as picture:
+            if picture.format not in {'JPEG', 'PNG', 'WEBP'} or getattr(picture, 'is_animated', False):
+                raise HTTPException(415, 'Choose a standard JPG, PNG or WebP image')
+            width, height = picture.size
+            if width < 100 or height < 100 or width * height > MAX_IMAGE_PIXELS:
+                raise HTTPException(422, 'Photo dimensions must be at least 100px and no more than 16 megapixels')
+            picture.load()
+            clean = ImageOps.exif_transpose(picture)
+            if clean.mode not in ('RGB', 'RGBA'):
+                clean = clean.convert('RGBA' if 'A' in clean.getbands() else 'RGB')
+            if clean.mode == 'RGBA':
+                # White background handles PNG transparency consistently with existing cards.
+                background = Image.new('RGB', clean.size, '#ffffff')
+                background.paste(clean, mask=clean.getchannel('A'))
+                clean = background
+            clean.thumbnail((1600, 1600), Image.Resampling.LANCZOS)
+            output = io.BytesIO()
+            clean.save(output, 'WEBP', quality=83, method=5)
+            encoded = output.getvalue()
+            if len(encoded) > MAX_SAVED_BYTES:
+                raise HTTPException(413, 'Optimized photo is too large; choose a smaller image')
+            return encoded
+    except HTTPException:
+        raise
+    except (UnidentifiedImageError, OSError, ValueError, Image.DecompressionBombError):
+        raise HTTPException(422, 'The selected file is not a readable photo')
+
+
+@app.post('/api/v1/admin/products/with-photo', response_model=AdminProductResponse,
+          status_code=status.HTTP_201_CREATED)
+async def admin_create_product_with_photo(
+    details: str = Form(...),
+    photo: UploadFile = File(...),
+    db: Session = Depends(get_db),
+    admin: User = Depends(get_current_admin),
+):
+    """One atomic transaction creates the cap, all stock rows, and its optimized photo."""
+    try:
+        parsed = json.loads(details)
+        if not isinstance(parsed, dict) or 'image_url' in parsed:
+            raise ValueError()
+        # Reuse the complete existing product validation without allowing URL injection.
+        pending = AdminProductCreateRequest.model_validate({
+            **parsed, 'image_url': 'https://fila-by-deji-api.onrender.com/api/v1/product-images/placeholder.webp'
+        })
+    except (ValueError, TypeError):
+        raise HTTPException(422, 'Product details are invalid')
+    try:
+        raw = await photo.read(MAX_UPLOAD_BYTES + 1)
+    finally:
+        await photo.close()
+    optimized = optimized_product_photo(raw, photo.content_type)
+    slug = re.sub(r'[^a-z0-9]+', '-', pending.name.lower()).strip('-')[:49].strip('-') or 'fila-cap'
+    product_id = f'{slug}-{uuid4().hex[:8]}'
+    photo_url = f'https://fila-by-deji-api.onrender.com/api/v1/product-images/{product_id}.webp'
+    product = Product(
+        id=product_id, name=pending.name, category=pending.category,
+        description=pending.description, price_kobo=pending.price_ngn * 100,
+        image_url=photo_url, is_active=pending.is_active,
+    )
+    for size in ('32', '35', '39', '41'):
+        product.stock_levels.append(ProductInventory(
+            size=size, quantity=pending.stock_by_size.get(size, 0)
+        ))
+    db.add(product)
+    db.add(ProductPhoto(product_id=product_id, image_data=optimized, mime_type='image/webp'))
+    try:
+        db.commit()
+    except IntegrityError:
+        db.rollback()
+        raise HTTPException(409, 'Unable to create product; please retry')
+    db.refresh(product)
+    return AdminProductResponse(**product_out(product).model_dump(), is_active=product.is_active)
 
 
 @app.post('/api/v1/admin/products', response_model=AdminProductResponse,
