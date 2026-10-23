@@ -76,7 +76,7 @@ def test_catalog_network_retries_only_safe_reads_and_never_overlays_home_navigat
 def test_normal_sign_in_returns_home_without_breaking_explicit_checkout_flow():
     script = (ROOT / 'js/app.js').read_text()
     assert "function safeNext(){const next=new URLSearchParams(location.search).get('next');" in script
-    assert "['checkout.html','cart.html','index.html','collection.html','orders.html','profile.html','admin.html'].includes(next)?next:'index.html';" in script
+    assert "['checkout.html','cart.html','index.html','collection.html','orders.html','profile.html'].includes(next)?next:'index.html';" in script
     assert "location.assign(next);" in script
     assert 'function initCheckoutOptions()' in script
 

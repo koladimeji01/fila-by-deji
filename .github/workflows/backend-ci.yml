@@ -13,7 +13,6 @@ on:
       - '*.html'
       - 'assets/**'
       - 'admin-site/**'
-      - 'admin-site/**'
       - '.github/workflows/backend-ci.yml'
   pull_request:
     paths:
@@ -25,6 +24,7 @@ on:
       - 'css/**'
       - '*.html'
       - 'assets/**'
+      - 'admin-site/**'
       - '.github/workflows/backend-ci.yml'
   workflow_dispatch:
 
