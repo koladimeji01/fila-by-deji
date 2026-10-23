@@ -1,4 +1,6 @@
 from contextlib import asynccontextmanager
+import re
+from uuid import uuid4
 from fastapi import Depends, FastAPI, HTTPException, Query, Request, Response, status
 from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy import func, select, text, update
@@ -12,7 +14,7 @@ from .models import Order, OrderItem, Product, ProductInventory, User, SavedItem
 from .schemas import (AdminOrderResponse, CreateDraftOrderRequest, LoginRequest, OrderItemResponse, OrderResponse,
                       ProductResponse, RegisterRequest, StockLevelResponse, StockUpdateRequest, TokenResponse, UserResponse,
                       SaveItemRequest, SavedItemResponse, DeliveryQuoteRequest, AdminOverviewResponse,
-                      AdminProductResponse, AdminProductUpdateRequest)
+                      AdminProductResponse, AdminProductUpdateRequest, AdminProductCreateRequest)
 from .security import create_token, get_current_admin, get_current_user, hash_password, verify_password
 from .reservations import aware, cancel_order, expire_holds, reserve_order
 
@@ -297,6 +299,34 @@ def admin_products(db: Session = Depends(get_db), admin: User = Depends(get_curr
     expire_holds(db)
     products = db.scalars(select(Product).order_by(Product.id)).all()
     return [AdminProductResponse(**product_out(p).model_dump(), is_active=p.is_active) for p in products]
+
+
+@app.post('/api/v1/admin/products', response_model=AdminProductResponse,
+          status_code=status.HTTP_201_CREATED)
+def admin_create_product(body: AdminProductCreateRequest,
+                         db: Session = Depends(get_db), admin: User = Depends(get_current_admin)):
+    """Only verified administrators can create database-backed catalog entries.
+
+    Image URLs point to externally hosted public JPEG/PNG/WebP files. The API never
+    downloads user-provided URLs or creates unreviewed files in the storefront.
+    """
+    slug = re.sub(r'[^a-z0-9]+', '-', body.name.lower()).strip('-')[:49].strip('-') or 'fila-cap'
+    product_id = f'{slug}-{uuid4().hex[:8]}'
+    product = Product(id=product_id, name=body.name, category=body.category,
+                      description=body.description, price_kobo=body.price_ngn * 100,
+                      image_url=body.image_url, is_active=body.is_active)
+    for size in ('32', '35', '39', '41'):
+        product.stock_levels.append(ProductInventory(
+            size=size, quantity=body.stock_by_size.get(size, 0)
+        ))
+    db.add(product)
+    try:
+        db.commit()
+    except IntegrityError:
+        db.rollback()
+        raise HTTPException(409, 'Could not create product; please retry')
+    db.refresh(product)
+    return AdminProductResponse(**product_out(product).model_dump(), is_active=product.is_active)
 
 
 @app.put('/api/v1/admin/products/{product_id}', response_model=AdminProductResponse)
