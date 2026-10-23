@@ -440,12 +440,28 @@ async function initOrders(){
        heading.append(name,date);
        const ref=document.createElement('p');ref.className='history-ref';ref.textContent=`Reference: ${order.id}`;
        const destination=document.createElement('p');destination.className='history-ref';destination.textContent=order.delivery_destination?'Delivery quote destination: '+order.delivery_destination:'';
+       const shipping=document.createElement('p');shipping.className='history-ref';
+       const quoted=Number.isSafeInteger(order.shipping_quote_ngn)&&order.shipping_quote_ngn>=0;
+       if(quoted){
+         shipping.textContent=`Delivery quote: ${money(order.shipping_quote_ngn)} · Estimated total: ${money(order.estimated_total_ngn)} · NOT paid`;
+       }
        const items=document.createElement('ul');items.className='history-items';
        for(const item of order.items||[])items.append(renderOrderItem(item));
        const foot=document.createElement('div');foot.className='history-card__foot';
        const label=document.createElement('span');label.textContent=labelFor(order);
        const total=document.createElement('strong');total.textContent=money(order.total_ngn);foot.append(label,total);
-       card.append(heading,ref);if(order.delivery_destination)card.append(destination);card.append(items,foot);
+       card.append(heading,ref);if(order.delivery_destination)card.append(destination);
+       if(quoted)card.append(shipping);
+       card.append(items,foot);
+       if(quoted&&order.status==='draft'){
+         const consult=document.createElement('a');
+         consult.className='button button--gold';
+         consult.target='_blank';consult.rel='noopener noreferrer';
+         const msg=`Hello FÌLÀ by Deji, I would like to confirm the delivery quote for unpaid enquiry ${order.id}. My destination is ${order.delivery_destination}. The site shows delivery ${money(order.shipping_quote_ngn)} and estimated total ${money(order.estimated_total_ngn)}. Please confirm stock, delivery and payment instructions.`;
+         consult.href=`https://wa.me/2348067422794?text=${encodeURIComponent(msg)}`;
+         consult.textContent='Confirm quote on WhatsApp';
+         card.append(consult);
+       }
        if(['draft','reserved'].includes(order.status)){
          const actions=document.createElement('div');actions.className='history-actions';
          if(order.status==='draft'){

@@ -205,3 +205,12 @@ def test_stage3_checkout_is_unpaid_delivery_enquiry_with_idempotent_reference():
     assert 'window.location.assign' in script
     assert 'No payment has been made' in script
     assert 'Order enquiries and previous selections' in orders
+
+
+def test_stage3_admin_quote_is_read_only_for_customer_until_confirmed():
+    js=(ROOT/'js/app.js').read_text()
+    assert 'order.shipping_quote_ngn' in js
+    assert 'Estimated total:' in js
+    assert 'NOT paid' in js
+    assert 'Confirm quote on WhatsApp' in js
+    assert 'encodeURIComponent(msg)' in js
