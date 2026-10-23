@@ -307,3 +307,14 @@ img.image-unavailable{opacity:0!important}.product-card__media:has(img.image-una
 .admin-product-card :focus-visible,.admin-report-list :focus-visible,.admin-settings-panel :focus-visible{outline:3px solid var(--gold);outline-offset:2px}
 @media(max-width:800px){.admin-product-list{grid-template-columns:1fr}.admin-settings-panel dl>div{grid-template-columns:1fr;gap:4px}}
 @media(max-width:500px){.admin-dashboard-nav a{flex:1 1 38%;font-size:12px}.admin-product-card{padding:16px}.admin-report-row{align-items:flex-start}}
+
+
+/* Separate staff signup/sign-in experience. No customer storefront changes. */
+.admin-auth-switch{margin:18px 0 0;text-align:center;font-size:13px;color:#555;line-height:1.6}
+.admin-auth-link{display:inline;border:0;background:transparent;color:#745812;text-decoration:underline;text-underline-offset:3px;cursor:pointer;font:inherit;font-weight:700;padding:6px 3px}
+.admin-auth-link:hover{color:#332900}
+.admin-auth-link:focus-visible{outline:3px solid var(--gold);outline-offset:3px;border-radius:3px}
+.admin-password-help{font-size:11px!important;margin:-5px 0 6px!important;line-height:1.55!important;color:#666!important}
+#admin-signup-feedback{color:#8d211f;min-height:1.4em;overflow-wrap:anywhere;font-size:13px;line-height:1.55}
+.admin-login input:focus-visible{outline:3px solid var(--gold);outline-offset:2px;border-color:#967100}
+.admin-login button:disabled{opacity:.62;cursor:wait}
