@@ -17,6 +17,27 @@ async function apiRequest(path,{method='GET',body,authorize=false}={}){
  }
  return payload;
 }
+async function uploadProductWithPhoto(details, file){
+  const access=token();
+  if(!access)throw new Error('Staff sign-in required');
+  const payload=new FormData();
+  payload.append('details',JSON.stringify(details));
+  payload.append('photo',file,file.name);
+  const response=await fetch(API_BASE+'/admin/products/with-photo',{
+    method:'POST',headers:{Authorization:'Bearer '+access,Accept:'application/json'},
+    body:payload,credentials:'omit',cache:'no-store'
+  });
+  const body=await response.json().catch(()=>({}));
+  if(!response.ok){
+    if(response.status===401)storeToken('');
+    const error=typeof body?.detail==='string'?body.detail:
+      (response.status===413?'The selected photo is too large.':
+       response.status===403?'Administrator privileges required':
+       'Photo upload failed ('+response.status+')');
+    throw new Error(error);
+  }
+  return body;
+}
 /* FÌLÀ business operations. The backend enforces admin privileges on every
    endpoint. Nothing private is embedded in the static HTML or JavaScript. */
 (() => {
@@ -146,6 +167,39 @@ async function apiRequest(path,{method='GET',body,authorize=false}={}){
       $a('admin-open-add-product').focus();
     }
   }
+  let currentPhotoPreviewUrl=null;
+  function clearPhotoPreview(){
+    if(currentPhotoPreviewUrl)URL.revokeObjectURL(currentPhotoPreviewUrl);
+    currentPhotoPreviewUrl=null;
+    $a('admin-photo-preview').removeAttribute('src');
+    $a('admin-photo-preview').hidden=true;
+    $a('admin-photo-preview-wrap').hidden=true;
+    $a('admin-photo-filename').textContent='';
+  }
+  function updatePhotoSource(){
+    const device=$a('admin-photo-device').checked;
+    $a('admin-photo-device-panel').hidden=!device;
+    $a('admin-photo-url-panel').hidden=device;
+    $a('admin-new-photo-file').required=device;
+    $a('admin-new-image').required=!device;
+    $a('admin-create-feedback').textContent='';
+  }
+  function previewDevicePhoto(){
+    clearPhotoPreview();
+    const photo=$a('admin-new-photo-file').files?.[0];
+    if(!photo)return;
+    const acceptable=['image/jpeg','image/png','image/webp'];
+    if(!acceptable.includes(photo.type)||photo.size>5*1024*1024||photo.size===0){
+      $a('admin-create-feedback').textContent='Choose a JPG, PNG or WebP file no larger than 5 MB.';
+      $a('admin-new-photo-file').value='';
+      return;
+    }
+    currentPhotoPreviewUrl=URL.createObjectURL(photo);
+    $a('admin-photo-preview').src=currentPhotoPreviewUrl;
+    $a('admin-photo-preview').hidden=false;
+    $a('admin-photo-filename').textContent=photo.name;
+    $a('admin-photo-preview-wrap').hidden=false;
+  }
   async function createProduct(event){
     event.preventDefault();
     const form=$a('admin-create-product');
@@ -167,12 +221,24 @@ async function apiRequest(path,{method='GET',body,authorize=false}={}){
     if(!Number.isSafeInteger(fields.price_ngn) || fields.price_ngn<100 || fields.price_ngn>10000000){
       status.textContent='Price must be a whole number from ₦100 to ₦10,000,000.';return;
     }
-    try{
-      const photo=new URL(fields.image_url);
-      if(photo.protocol!=='https:' || photo.username || photo.password ||
-         !/\.(jpg|jpeg|png|webp)$/i.test(photo.pathname))throw new Error();
-    }catch{
-      status.textContent='Use a public HTTPS photo URL ending with .jpg, .jpeg, .png or .webp.';return;
+    const fromDevice=$a('admin-photo-device').checked;
+    let devicePhoto=null;
+    if(fromDevice){
+      devicePhoto=$a('admin-new-photo-file').files?.[0];
+      if(!devicePhoto || !['image/jpeg','image/png','image/webp'].includes(devicePhoto.type) ||
+         devicePhoto.size===0 || devicePhoto.size>5*1024*1024){
+        status.textContent='Select a JPG, PNG or WebP photo from your device (5 MB maximum).';
+        return;
+      }
+      delete fields.image_url;
+    }else{
+      try{
+        const photo=new URL(fields.image_url);
+        if(photo.protocol!=='https:' || photo.username || photo.password ||
+           !/\.(jpg|jpeg|png|webp)$/i.test(photo.pathname))throw new Error();
+      }catch{
+        status.textContent='Use a public HTTPS photo URL ending with .jpg, .jpeg, .png or .webp.';return;
+      }
     }
     for(const size of ['32','35','39','41']){
       const input=$a('admin-new-stock-'+size);
@@ -186,9 +252,13 @@ async function apiRequest(path,{method='GET',body,authorize=false}={}){
     const save=$a('admin-create-submit');
     save.disabled=true;status.textContent='Saving your cap…';
     try{
-      const product=await apiRequest('/admin/products',{method:'POST',authorize:true,body:fields});
+      const product=fromDevice
+        ?await uploadProductWithPhoto(fields,devicePhoto)
+        :await apiRequest('/admin/products',{method:'POST',authorize:true,body:fields});
       if(!product?.id)throw new Error('Product was not confirmed by the server.');
       form.reset();
+      clearPhotoPreview();
+      updatePhotoSource();
       for(const size of ['32','35','39','41'])$a('admin-new-stock-'+size).value='0';
       toggleProductCreator(false);
       const results=await Promise.allSettled([loadProducts(),loadInventory(),refreshOverview()]);
@@ -469,6 +539,10 @@ async function apiRequest(path,{method='GET',body,authorize=false}={}){
     $a('admin-open-add-product').addEventListener('click',()=>toggleProductCreator($a('admin-create-product').hidden));
     $a('admin-cancel-add-product').addEventListener('click',()=>toggleProductCreator(false));
     $a('admin-create-product').addEventListener('submit',createProduct);
+    $a('admin-photo-device').addEventListener('change',updatePhotoSource);
+    $a('admin-photo-link').addEventListener('change',updatePhotoSource);
+    $a('admin-new-photo-file').addEventListener('change',previewDevicePhoto);
+    updatePhotoSource();
     $a('admin-export-report').addEventListener('click',exportReports);
     $a('admin-release-expired').addEventListener('click',async()=>{
       const button=$a('admin-release-expired');
