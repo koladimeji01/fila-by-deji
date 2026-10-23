@@ -45,6 +45,7 @@
   </form>
   <p id="admin-login-feedback" role="status" aria-live="polite"></p>
   <p class="admin-auth-switch">New to the team? <button type="button" class="admin-auth-link" id="admin-show-signup">Create a staff account</button></p>
+  <p class="admin-auth-switch">Already have a customer account? <button type="button" class="admin-auth-link" id="admin-request-existing">Request staff access</button> using the credentials above.</p>
 </section>
 <section id="admin-signup" class="admin-login" aria-labelledby="staff-signup-title" hidden>
   <span class="eyebrow">STAFF REGISTRATION</span>
@@ -73,6 +74,7 @@
    <a href="#admin-inventory-title">Inventory</a>
    <a href="#admin-orders-title">Enquiries</a>
    <a href="#admin-reports-title">Reports</a>
+   <a href="#admin-staff-title" id="admin-staff-nav" hidden>Staff</a>
    <a href="#admin-settings-title">Settings</a>
   </nav>
   <div class="admin-toolbar">
@@ -168,6 +170,17 @@
    <p id="admin-report-note" class="admin-muted">Reports become available after staff verification.</p>
    <div id="admin-report-stats" class="admin-stats" aria-live="polite"></div>
    <div id="admin-report-by-product" class="admin-report-list"></div>
+  </section>
+  <section class="admin-section" id="admin-staff-section" aria-labelledby="admin-staff-title" hidden>
+    <div class="admin-section__heading">
+     <div><h2 id="admin-staff-title">Staff Management</h2>
+      <p>Approve new staff requests, reject applications or revoke operational access.</p></div>
+     <button type="button" id="admin-staff-refresh" class="button button--outline">Refresh staff</button>
+    </div>
+    <p class="admin-muted">Only staff managers may grant access. New staff receive operational permissions, not staff-management authority. Existing owner-level managers cannot be revoked from this page.</p>
+    <p id="admin-staff-feedback" role="status" aria-live="polite" class="admin-muted"></p>
+    <div id="admin-staff-summary" class="admin-stats"></div>
+    <div id="admin-staff-list" class="admin-staff-list" aria-live="polite"></div>
   </section>
   <section class="admin-section" aria-labelledby="admin-settings-title">
    <div class="admin-section__heading"><div><h2 id="admin-settings-title">Staff account & security</h2><p>Review the account used to access this restricted workspace.</p></div></div>
