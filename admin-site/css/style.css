@@ -318,3 +318,20 @@ img.image-unavailable{opacity:0!important}.product-card__media:has(img.image-una
 #admin-signup-feedback{color:#8d211f;min-height:1.4em;overflow-wrap:anywhere;font-size:13px;line-height:1.55}
 .admin-login input:focus-visible{outline:3px solid var(--gold);outline-offset:2px;border-color:#967100}
 .admin-login button:disabled{opacity:.62;cursor:wait}
+
+
+/* Add-product form: responsive, consistent with FÌLÀ's existing staff UI. */
+.admin-create-product{margin:20px 0 26px;background:#fff;border:1px solid var(--border);border-radius:16px;padding:clamp(18px,3vw,30px);box-shadow:0 8px 34px #25252509}
+.admin-create-product>.admin-section__heading{margin:0 0 20px}
+.admin-create-product h3{font-family:var(--display);font-size:clamp(22px,2.5vw,28px);margin:0 0 8px}
+.admin-add-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:15px 19px}
+.admin-add-field-wide{grid-column:1/-1}
+.admin-add-stock{border:1px solid var(--border);border-radius:11px;padding:13px 17px 17px;margin:22px 0 16px}
+.admin-add-stock legend{font-size:13px;font-weight:700;padding:0 8px}
+.admin-add-stock-grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px}
+.admin-add-stock-grid label{display:grid;gap:7px;font-size:12px;font-weight:700}
+.admin-add-stock-grid input{min-height:41px;width:100%;padding:9px 11px;border:1px solid #bdb7a9;border-radius:8px;font:inherit;font-size:14px}
+.admin-add-actions{display:flex;justify-content:space-between;align-items:center;gap:16px;flex-wrap:wrap;margin-top:24px}
+#admin-create-feedback{font-size:13px;color:#9d2724;flex:1;min-width:180px}
+.admin-create-product input:focus-visible,.admin-create-product textarea:focus-visible{outline:3px solid var(--gold);outline-offset:2px}
+@media(max-width:700px){.admin-add-grid{grid-template-columns:1fr}.admin-add-stock-grid{grid-template-columns:repeat(2,minmax(0,1fr))}.admin-add-actions .button{width:100%}}
