@@ -63,6 +63,7 @@ def order_out(order: Order) -> OrderResponse:
     return OrderResponse(
         id=order.id, status=order.status, total_ngn=order.total_kobo // 100,
         created_at=order.created_at, reserved_until=aware(order.reserved_until),
+        delivery_destination=order.delivery_destination,
         items=[OrderItemResponse(
             product_id=item.product_id, product_name=item.product_name, size=item.size,
             quantity=item.quantity, unit_price_ngn=item.unit_price_kobo // 100,
@@ -169,10 +170,29 @@ def remove_saved_item(product_id: str, size: str,
     return Response(status_code=status.HTTP_204_NO_CONTENT)
 
 
+def existing_order_request(db: Session, user: User, body: CreateDraftOrderRequest) -> Order | None:
+    """Idempotent request replay: only for the original owner and identical basket.
+
+    This prevents two unpaid drafts if a response is lost or a customer double-clicks.
+    """
+    existing = db.scalar(select(Order).where(Order.client_request_id == str(body.client_request_id)))
+    if existing is None:
+        return None
+    original = sorted((item.product_id, item.size, item.quantity) for item in existing.items)
+    requested = sorted((item.product_id, item.size, item.quantity) for item in body.items)
+    if existing.user_id != user.id or original != requested or existing.delivery_destination != body.delivery_destination:
+        raise HTTPException(409, 'Order request reference cannot be reused with another selection')
+    return existing
+
+
 @app.post('/api/v1/orders/drafts', response_model=OrderResponse, status_code=status.HTTP_201_CREATED)
 def create_draft_order(body: CreateDraftOrderRequest, db: Session = Depends(get_db),
                        user: User = Depends(get_current_user)):
     expire_holds(db)
+    if body.client_request_id is not None:
+        prior = existing_order_request(db, user, body)
+        if prior:
+            return order_out(prior)
     products = {p.id: p for p in db.scalars(select(Product).where(
         Product.id.in_([item.product_id for item in body.items]), Product.is_active.is_(True))).all()}
     if len(products) != len({item.product_id for item in body.items}):
@@ -186,13 +206,23 @@ def create_draft_order(body: CreateDraftOrderRequest, db: Session = Depends(get_
     if unavailable:
         raise HTTPException(409, 'Requested cap size or quantity is unavailable. Refresh your bag and try again.')
     total = sum(products[item.product_id].price_kobo * item.quantity for item in body.items)
-    order = Order(user_id=user.id, total_kobo=total, status='draft')
+    order = Order(user_id=user.id, total_kobo=total, status='draft',
+                  client_request_id=str(body.client_request_id) if body.client_request_id else None,
+                  delivery_destination=body.delivery_destination)
     for item in body.items:
         p = products[item.product_id]
         order.items.append(OrderItem(product_id=p.id, product_name=p.name, size=item.size,
                                      quantity=item.quantity, unit_price_kobo=p.price_kobo))
     db.add(order)
-    db.commit()
+    try:
+        db.commit()
+    except IntegrityError:
+        db.rollback()
+        if body.client_request_id is not None:
+            prior = existing_order_request(db, user, body)
+            if prior:
+                return order_out(prior)
+        raise HTTPException(409, 'Could not record order request; please retry safely')
     db.refresh(order)
     return order_out(order)
 

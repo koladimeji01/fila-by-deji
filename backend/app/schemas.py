@@ -1,4 +1,5 @@
 from datetime import datetime
+from uuid import UUID
 from pydantic import BaseModel, ConfigDict, EmailStr, Field, field_validator, model_validator
 
 SIZES = {'32', '35', '39', '41'}
@@ -66,6 +67,18 @@ class OrderItemInput(BaseModel):
 class CreateDraftOrderRequest(BaseModel):
     model_config = ConfigDict(extra='forbid')
     items: list[OrderItemInput] = Field(min_length=1, max_length=30)
+    client_request_id: UUID | None = None
+    delivery_destination: str | None = Field(default=None, min_length=3, max_length=120)
+
+    @field_validator('delivery_destination')
+    @classmethod
+    def normalise_destination(cls, value: str | None) -> str | None:
+        if value is None:
+            return None
+        cleaned = ' '.join(value.split())
+        if len(cleaned) < 3 or len(cleaned) > 120:
+            raise ValueError('Delivery destination must be 3-120 characters')
+        return cleaned
 
     @model_validator(mode='after')
     def no_duplicate_lines(self):
@@ -90,6 +103,7 @@ class OrderResponse(BaseModel):
     total_ngn: int
     created_at: datetime
     reserved_until: datetime | None = None
+    delivery_destination: str | None = None
     items: list[OrderItemResponse]
 
 

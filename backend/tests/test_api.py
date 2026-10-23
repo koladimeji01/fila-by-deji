@@ -139,3 +139,34 @@ def test_cors_allows_local_frontend_only(client):
     invalid=client.options('/api/v1/orders/drafts', headers={'Origin':'https://evil.invalid',
         'Access-Control-Request-Method':'POST'})
     assert invalid.headers.get('access-control-allow-origin') is None
+
+def test_checkout_request_is_idempotent_and_keeps_delivery_quote_unconfirmed(client, auth):
+    from uuid import uuid4
+    h = auth(client)
+    key = str(uuid4())
+    payload = {'client_request_id': key,
+               'delivery_destination': 'Lagos, Ikeja',
+               'items': [{'product_id': 'premium', 'size': '39', 'quantity': 2}]}
+    first = client.post('/api/v1/orders/drafts', json=payload, headers=h)
+    assert first.status_code == 201, first.text
+    ref = first.json()['id']
+    assert first.json()['total_ngn'] == 20000
+    assert first.json()['status'] == 'draft'
+    assert first.json()['delivery_destination'] == 'Lagos, Ikeja'
+    again = client.post('/api/v1/orders/drafts', json=payload, headers=h)
+    assert again.status_code == 201
+    assert again.json()['id'] == ref
+    assert len(client.get('/api/v1/orders', headers=h).json()) == 1
+    amended = {**payload, 'items': [{'product_id': 'premium', 'size': '39', 'quantity': 1}]}
+    assert client.post('/api/v1/orders/drafts', json=amended, headers=h).status_code == 409
+    another = auth(client, email='stage3-other@example.com')
+    assert client.post('/api/v1/orders/drafts', json=payload, headers=another).status_code == 409
+
+
+def test_checkout_request_validates_shipping_destination(client, auth):
+    h = auth(client)
+    valid = {'items': [{'product_id': 'classic', 'size': '39', 'quantity': 1}]}
+    assert client.post('/api/v1/orders/drafts', json={**valid, 'delivery_destination': '  Ibadan,   Oyo  '}, headers=h).json()['delivery_destination']=='Ibadan, Oyo'
+    for invalid in ('x', '  ', 'a'*121):
+        assert client.post('/api/v1/orders/drafts', json={**valid, 'delivery_destination': invalid}, headers=h).status_code == 422
+    assert client.post('/api/v1/orders/drafts', json={**valid, 'client_request_id': 'guess'}, headers=h).status_code == 422

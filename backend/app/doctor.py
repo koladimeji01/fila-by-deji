@@ -29,7 +29,7 @@ def check_readiness() -> list[str]:
             checks = {
                 'users': {'id', 'email', 'is_admin'},
                 'products': {'id', 'price_kobo'},
-                'orders': {'id', 'status', 'reserved_until'},
+                'orders': {'id', 'status', 'reserved_until', 'client_request_id', 'delivery_destination'},
                 'order_items': {'order_id', 'product_id'},
                 'product_inventory': {'product_id', 'size', 'quantity'},
                 'saved_items': {'user_id', 'product_id', 'size', 'quantity'},

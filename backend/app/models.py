@@ -40,6 +40,8 @@ class Order(Base):
     user_id: Mapped[str] = mapped_column(ForeignKey('users.id', ondelete='RESTRICT'), index=True, nullable=False)
     status: Mapped[str] = mapped_column(String(30), nullable=False, default='draft')
     total_kobo: Mapped[int] = mapped_column(Integer, nullable=False)
+    client_request_id: Mapped[str | None] = mapped_column(String(36), unique=True, nullable=True, index=True)
+    delivery_destination: Mapped[str | None] = mapped_column(String(120), nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow, nullable=False)
     reserved_until: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     user: Mapped[User] = relationship(back_populates='orders')
