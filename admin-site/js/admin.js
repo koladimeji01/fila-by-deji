@@ -135,6 +135,73 @@ async function apiRequest(path,{method='GET',body,authorize=false}={}){
     wrap.append(title,field);
     return {wrap,field};
   };
+  function toggleProductCreator(show){
+    const form=$a('admin-create-product');
+    form.hidden=!show;
+    $a('admin-open-add-product').setAttribute('aria-expanded',String(show));
+    if(show){
+      form.scrollIntoView({behavior:'smooth',block:'start'});
+      $a('admin-new-name').focus({preventScroll:true});
+    }else{
+      $a('admin-open-add-product').focus();
+    }
+  }
+  async function createProduct(event){
+    event.preventDefault();
+    const form=$a('admin-create-product');
+    if(!form.reportValidity())return;
+    const status=$a('admin-create-feedback');
+    status.textContent='';
+    const fields={
+      name:$a('admin-new-name').value.trim(),
+      category:$a('admin-new-category').value.trim(),
+      description:$a('admin-new-description').value.trim(),
+      price_ngn:Number($a('admin-new-price').value),
+      image_url:$a('admin-new-image').value.trim(),
+      is_active:$a('admin-new-publish').checked,
+      stock_by_size:{},
+    };
+    if(fields.name.length<2 || fields.category.length<2 || fields.description.length<5){
+      status.textContent='Enter a meaningful name, category and description.';return;
+    }
+    if(!Number.isSafeInteger(fields.price_ngn) || fields.price_ngn<100 || fields.price_ngn>10000000){
+      status.textContent='Price must be a whole number from ₦100 to ₦10,000,000.';return;
+    }
+    try{
+      const photo=new URL(fields.image_url);
+      if(photo.protocol!=='https:' || photo.username || photo.password ||
+         !/\\.(jpg|jpeg|png|webp)$/i.test(photo.pathname))throw new Error();
+    }catch{
+      status.textContent='Use a public HTTPS photo URL ending with .jpg, .jpeg, .png or .webp.';return;
+    }
+    for(const size of ['32','35','39','41']){
+      const input=$a('admin-new-stock-'+size);
+      const qty=Number(input.value);
+      if(input.value.trim()==='' || !Number.isSafeInteger(qty) || qty<0 || qty>100000){
+        status.textContent='Stock for size '+size+' must be a whole number between 0 and 100,000.';
+        input.focus();return;
+      }
+      fields.stock_by_size[size]=qty;
+    }
+    const save=$a('admin-create-submit');
+    save.disabled=true;status.textContent='Saving your cap…';
+    try{
+      const product=await apiRequest('/admin/products',{method:'POST',authorize:true,body:fields});
+      if(!product?.id)throw new Error('Product was not confirmed by the server.');
+      form.reset();
+      for(const size of ['32','35','39','41'])$a('admin-new-stock-'+size).value='0';
+      toggleProductCreator(false);
+      const results=await Promise.allSettled([loadProducts(),loadInventory(),refreshOverview()]);
+      const failed=results.some(r=>r.status==='rejected');
+      const saved='Created '+product.name+'. '+(fields.is_active
+        ? 'It is published in the customer catalogue.'
+        : 'It is saved as a hidden draft.');
+      feedback(saved+(failed?' Some dashboard sections need a refresh.':''),failed?'notice':'success');
+    }catch(error){
+      status.textContent='Could not save new product: '+error.message;
+      feedback('New product was not confirmed: '+error.message,'error');
+    }finally{save.disabled=false;}
+  }
   async function loadProducts(){
     const products=await apiRequest('/admin/products',{authorize:true});
     if(!Array.isArray(products))throw new Error('Unexpected product response.');
@@ -399,6 +466,9 @@ async function apiRequest(path,{method='GET',body,authorize=false}={}){
     $a('admin-signup-form').addEventListener('submit',submitSignup);
     $a('admin-refresh').addEventListener('click',loadDashboard);
     $a('admin-more-orders').addEventListener('click',loadOrders);
+    $a('admin-open-add-product').addEventListener('click',()=>toggleProductCreator($a('admin-create-product').hidden));
+    $a('admin-cancel-add-product').addEventListener('click',()=>toggleProductCreator(false));
+    $a('admin-create-product').addEventListener('submit',createProduct);
     $a('admin-export-report').addEventListener('click',exportReports);
     $a('admin-release-expired').addEventListener('click',async()=>{
       const button=$a('admin-release-expired');
