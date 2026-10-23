@@ -6,6 +6,7 @@ IP-based limits are an initial defense, not account lockout or bot mitigation.
 """
 from functools import lru_cache
 from hashlib import sha256
+from ipaddress import ip_address
 from threading import Lock
 import time
 
@@ -71,6 +72,32 @@ def _local_increment(rule: str, identity: str, bucket: int) -> int:
         return _memory[key]
 
 
+def client_rate_limit_identity(request: Request, settings) -> str:
+    """Return the visitor's client address, never an arbitrary forwarded chain.
+
+    On Render, Cloudflare supplies CF-Connecting-IP at its edge and strips any
+    client-supplied value. Opt in only for this verified ingress deployment.
+    Do not read X-Forwarded-For: the caller can prepend spoofed values to it.
+    Other deployments and missing/invalid headers fall back to socket identity.
+    """
+    socket_ip = request.client.host if request.client else 'unknown'
+    if settings.app_env != 'production' or not settings.rate_limit_trust_render_client_ip:
+        return socket_ip
+
+    forwarded = request.headers.get('cf-connecting-ip', '')
+    # Exactly one, canonical, public IP. Reject chains, whitespace, hostnames,
+    # ports, internal addresses and ambiguous header values.
+    if not forwarded or forwarded != forwarded.strip() or ',' in forwarded:
+        return socket_ip
+    try:
+        parsed = ip_address(forwarded)
+    except ValueError:
+        return socket_ip
+    if not parsed.is_global:
+        return socket_ip
+    return parsed.compressed
+
+
 async def limit_request(request: Request, call_next):
     """HTTP middleware; fail closed on Redis errors in production."""
     rule = match_rule(request.method, request.url.path)
@@ -79,10 +106,10 @@ async def limit_request(request: Request, call_next):
         now = int(time.time())
         bucket = now // seconds
         wait = seconds - (now % seconds)
-        source = request.client.host if request.client else 'unknown'
-        # Avoid storing raw IP addresses inside Redis keys.
-        identity = sha256(source.encode('utf-8')).hexdigest()
         settings = get_settings()
+        source = client_rate_limit_identity(request, settings)
+        # Store only hashes, never visitor IPs, in Redis keys.
+        identity = sha256(source.encode('utf-8')).hexdigest()
         if settings.app_env == 'production':
             try:
                 key = f'fila:rl:{rule}:{identity}:{bucket}'

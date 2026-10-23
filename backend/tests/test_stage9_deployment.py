@@ -89,3 +89,8 @@ def test_ci_tests_site_and_backend():
     yaml = (ROOT / '.github/workflows/backend-ci.yml').read_text()
     assert 'pytest -q' in yaml
     assert 'node --check js/app.js' in yaml
+
+
+def test_render_client_address_forwarding_is_opt_in_only():
+    assert secure().rate_limit_trust_render_client_ip is False
+    assert secure(rate_limit_trust_render_client_ip=True).rate_limit_trust_render_client_ip is True

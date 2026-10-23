@@ -36,6 +36,7 @@ class Settings(BaseSettings):
     cors_origins: str = 'http://127.0.0.1:5500,http://localhost:5500'
     rate_limit_redis_url: str = ''  # Required in production
     rate_limit_allow_render_private_redis: bool = False  # Explicit opt-in for Render private-network Redis
+    rate_limit_trust_render_client_ip: bool = False  # Enable only behind Render's Cloudflare-protected public ingress
 
     @model_validator(mode='after')
     def validate_security(self):
