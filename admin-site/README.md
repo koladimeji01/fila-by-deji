@@ -15,7 +15,10 @@ Both admin URLs are now verified and assigned to the standalone administration p
 
 ## Business functions
 
-- Create staff account from the sign-in page (name, email, password and password confirmation). This uses `/api/v1/auth/register`, which creates a **non-admin account**. It does not grant access or notify the business owner automatically.
+- Create staff account from the sign-in page (name, email, password and password confirmation). This uses `/api/v1/staff/register`, which creates a **non-admin account and a pending staff application**. It does not grant access automatically.
+- Existing customer accounts can select **Request staff access** from the admin sign-in page; this creates a pending request without duplicate registration.
+- Staff managers can review pending applications, **approve**, **reject**, or **revoke operational access** using the Staff Management section. Applications and access changes are tracked in an audit table.
+- Staff approvals require a distinct database-backed `can_manage_staff` permission, preserved for the pre-existing administrators during migration. Newly approved staff get `is_admin=true` but `can_manage_staff=false`.
 - Administrator-only sign-in; the backend checks `users.is_admin` on each business endpoint
 - Operations overview; totals are not sales revenue
 - **Add a new product** through the Product Catalogue panel. Enter product name, category, description, price, a public HTTPS image URL, available quantities for sizes 32/35/39/41, and choose whether to publish. The backend generates a unique ID, creates all four inventory rows atomically and requires administrator authorization.
@@ -36,7 +39,7 @@ The production Render CORS origins include:
 https://fila-by-deji.vercel.app,https://fila-by-deji-assets.vercel.app,https://fila-by-deji-admin.vercel.app,https://fila-deji-business.vercel.app
 ```
 
-New team members can create an account from the business portal. The same underlying account can be used for customer sign-in, but it **cannot** view the business dashboard until an authorized operator verifies the applicant and explicitly grants `users.is_admin=true` using the privileged operator procedure in `backend/app/admin.py`. There is no public self-approval endpoint or automated email/approval queue. The new staff member must contact the business owner for access. This workflow has not verified or automatically promoted any existing production administrator account.
+New team members register from the business portal. The backend creates a **pending** `staff_applications` record. Existing customer accounts can also request approval using their current credentials. A **staff manager** sees only staff requests and existing admin accounts, not every registered customer. The owner should verify the staff applicant's identity before approving. An approval grants operational administrator access but **never** staff-management permission. Revoking access blocks existing JWTs immediately because roles are read from the database on every API request; it does not delete the user's customer account. Owner-level staff managers cannot be revoked through this panel, and users cannot change their own status. The `staff_access_audit` table retains review history. The dashboard does not currently send an email when applications arrive—staff managers should review the Staff section. No existing customer account was automatically promoted by this feature.
 
 ## Build and test
 
