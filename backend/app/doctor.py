@@ -33,6 +33,7 @@ def check_readiness() -> list[str]:
                 'delivery_quote_audit': {'id', 'order_id', 'admin_user_id', 'new_amount_kobo'},
                 'order_items': {'order_id', 'product_id'},
                 'product_inventory': {'product_id', 'size', 'quantity'},
+                'product_photos': {'product_id', 'image_data', 'mime_type', 'created_at'},
                 'saved_items': {'user_id', 'product_id', 'size', 'quantity'},
             }
             tables = set(schema.get_table_names())
