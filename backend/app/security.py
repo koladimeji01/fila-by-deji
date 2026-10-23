@@ -68,3 +68,12 @@ def get_current_admin(user: User = Depends(get_current_user)) -> User:
     if not user.is_admin:
         raise HTTPException(403, 'Administrator privileges required')
     return user
+
+
+
+def get_current_staff_manager(user: User = Depends(get_current_admin)) -> User:
+    # Approved operational staff may not create additional administrators.
+    # Look up the permission on every request, never trust a JWT or browser flag.
+    if not user.can_manage_staff:
+        raise HTTPException(403, 'Staff management permission required')
+    return user
