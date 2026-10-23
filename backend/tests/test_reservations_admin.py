@@ -190,3 +190,60 @@ def test_admin_put_cors_preflight_from_approved_frontend(client):
         'Origin':'https://not-allowed.invalid','Access-Control-Request-Method':'PUT',
     })
     assert r2.headers.get('access-control-allow-origin') is None
+
+
+def test_admin_overview_is_protected_and_no_revenue_is_claimed(client, auth):
+    """Admin sees correct stock and enquiry counts, never a fictitious sales total."""
+    staff = auth(client)
+    other = auth(client, email='stage4-customer@example.com')
+    assert client.get('/api/v1/admin/overview').status_code == 401
+    assert client.get('/api/v1/admin/overview', headers=staff).status_code == 403
+
+    with SessionLocal() as db:
+        db.query(User).filter_by(email='ada@example.com').one().is_admin = True
+        db.commit()
+
+    initial = client.get('/api/v1/admin/overview', headers=staff)
+    assert initial.status_code == 200
+    assert initial.headers['cache-control'] == 'no-store'
+    assert initial.json() == {
+        'active_products': 3,
+        'available_units': 96,
+        'out_of_stock_variants': 0,
+        'total_enquiries': 0,
+        'unquoted_enquiries': 0,
+        'quoted_enquiries': 0,
+        'active_stock_holds': 0,
+    }
+
+    r = client.post('/api/v1/orders/drafts', headers=other, json={
+        'delivery_destination': 'Ikeja, Lagos',
+        'items': [{'product_id':'classic', 'size':'32', 'quantity':1}],
+    })
+    assert r.status_code == 201
+    order_id = r.json()['id']
+    summary = client.get('/api/v1/admin/overview', headers=staff).json()
+    assert summary['total_enquiries'] == 1
+    assert summary['unquoted_enquiries'] == 1
+    assert summary['available_units'] == 96
+    assert 'revenue_ngn' not in summary
+
+    records = client.get('/api/v1/admin/orders', headers=staff).json()
+    assert records[0]['customer_name'] == 'Ada Example'
+    assert records[0]['customer_email'] == 'stage4-customer@example.com'
+    assert 'customer_email' not in client.get('/api/v1/orders', headers=other).text
+
+    quote = client.put(f'/api/v1/admin/orders/{order_id}/delivery-quote', headers=staff,
+                       json={'shipping_amount_ngn': 2000})
+    assert quote.status_code == 200
+    assert quote.json()['customer_email'] == 'stage4-customer@example.com'
+    summary = client.get('/api/v1/admin/overview', headers=staff).json()
+    assert summary['unquoted_enquiries'] == 0
+    assert summary['quoted_enquiries'] == 1
+
+    with SessionLocal() as db:
+        db.get(ProductInventory, ('classic', '32')).quantity = 0
+        db.commit()
+    summary = client.get('/api/v1/admin/overview', headers=staff).json()
+    assert summary['out_of_stock_variants'] == 1
+    assert summary['available_units'] == 88

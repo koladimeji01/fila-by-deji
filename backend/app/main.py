@@ -1,7 +1,7 @@
 from contextlib import asynccontextmanager
 from fastapi import Depends, FastAPI, HTTPException, Query, Request, Response, status
 from fastapi.middleware.cors import CORSMiddleware
-from sqlalchemy import select, text, update
+from sqlalchemy import func, select, text, update
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
@@ -11,7 +11,7 @@ from .database import get_db
 from .models import Order, OrderItem, Product, ProductInventory, User, SavedItem, DeliveryQuoteAudit
 from .schemas import (AdminOrderResponse, CreateDraftOrderRequest, LoginRequest, OrderItemResponse, OrderResponse,
                       ProductResponse, RegisterRequest, StockLevelResponse, StockUpdateRequest, TokenResponse, UserResponse,
-                      SaveItemRequest, SavedItemResponse, DeliveryQuoteRequest)
+                      SaveItemRequest, SavedItemResponse, DeliveryQuoteRequest, AdminOverviewResponse)
 from .security import create_token, get_current_admin, get_current_user, hash_password, verify_password
 from .reservations import aware, cancel_order, expire_holds, reserve_order
 
@@ -265,6 +265,27 @@ def cancel_my_order(order_id: str, db: Session = Depends(get_db),
     return order_out(cancel_order(db, order))
 
 
+@app.get('/api/v1/admin/overview', response_model=AdminOverviewResponse)
+def admin_overview(db: Session = Depends(get_db), admin: User = Depends(get_current_admin)):
+    """Only actual administrators can view these operational totals."""
+    expire_holds(db)
+    active = db.scalar(select(func.count()).select_from(Product).where(Product.is_active.is_(True)))
+    available = db.scalar(select(func.coalesce(func.sum(ProductInventory.quantity), 0)))
+    sold_out = db.scalar(select(func.count()).select_from(ProductInventory).where(ProductInventory.quantity == 0))
+    active_enquiry = (Order.status == 'draft') & Order.delivery_destination.is_not(None)
+    total = db.scalar(select(func.count()).select_from(Order).where(active_enquiry))
+    unquoted = db.scalar(select(func.count()).select_from(Order).where(
+        active_enquiry, Order.shipping_quote_kobo.is_(None)))
+    quoted = db.scalar(select(func.count()).select_from(Order).where(
+        active_enquiry, Order.shipping_quote_kobo.is_not(None)))
+    holds = db.scalar(select(func.count()).select_from(Order).where(Order.status == 'reserved'))
+    return AdminOverviewResponse(
+        active_products=active, available_units=available, out_of_stock_variants=sold_out,
+        total_enquiries=total, unquoted_enquiries=unquoted,
+        quoted_enquiries=quoted, active_stock_holds=holds,
+    )
+
+
 @app.get('/api/v1/admin/inventory', response_model=list[StockLevelResponse])
 def admin_inventory(db: Session = Depends(get_db), admin: User = Depends(get_current_admin)):
     expire_holds(db)
@@ -297,7 +318,8 @@ def admin_orders(limit: int = Query(20, ge=1, le=100), offset: int = Query(0, ge
     expire_holds(db)
     rows = db.scalars(select(Order).order_by(Order.created_at.desc(), Order.id.desc())
                       .offset(offset).limit(limit)).all()
-    return [AdminOrderResponse(**order_out(o).model_dump(), user_id=o.user_id) for o in rows]
+    return [AdminOrderResponse(**order_out(o).model_dump(), user_id=o.user_id,
+                               customer_name=o.user.name, customer_email=o.user.email) for o in rows]
 
 
 @app.put('/api/v1/admin/orders/{order_id}/delivery-quote', response_model=AdminOrderResponse)
@@ -321,7 +343,8 @@ def admin_quote_delivery(order_id: str, body: DeliveryQuoteRequest,
         order.shipping_quoted_at = utcnow()
         db.commit()
         db.refresh(order)
-    return AdminOrderResponse(**order_out(order).model_dump(), user_id=order.user_id)
+    return AdminOrderResponse(**order_out(order).model_dump(), user_id=order.user_id,
+                              customer_name=order.user.name, customer_email=order.user.email)
 
 
 @app.post('/api/v1/admin/reservations/release-expired')

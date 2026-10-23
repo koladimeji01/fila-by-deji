@@ -123,6 +123,8 @@ class StockLevelResponse(BaseModel):
 
 class AdminOrderResponse(OrderResponse):
     user_id: str
+    customer_name: str | None = None
+    customer_email: EmailStr | None = None
 
 
 class SaveItemRequest(BaseModel):
@@ -142,3 +144,14 @@ class SavedItemResponse(BaseModel):
 class DeliveryQuoteRequest(BaseModel):
     model_config = ConfigDict(extra='forbid')
     shipping_amount_ngn: int = Field(ge=0, le=2_000_000, strict=True)
+
+
+class AdminOverviewResponse(BaseModel):
+    """Admin operations counts; no payment or revenue claims."""
+    active_products: int
+    available_units: int
+    out_of_stock_variants: int
+    total_enquiries: int
+    unquoted_enquiries: int
+    quoted_enquiries: int
+    active_stock_holds: int
