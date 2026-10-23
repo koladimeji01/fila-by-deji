@@ -11,10 +11,11 @@ This is the standalone **staff-only** administration frontend. It lives in `admi
 - Git source: `koladimeji01/fila-by-deji`, branch `main`, root directory `admin-site`
 - Backend: `https://fila-by-deji-api.onrender.com/api/v1`
 
-Both admin URLs are now verified and assigned to the standalone administration project. Use `fila-by-deji-admin.vercel.app` as the primary staff portal. The Vercel admin project has **SSO protection enabled for all deployments**, plus `noindex`, no-cache and a restrictive Content Security Policy.
+Both admin URLs are now verified and assigned to the standalone administration project. Use `fila-by-deji-admin.vercel.app` as the primary staff portal. The production sign-in and sign-up page is reachable without a Vercel team login. **Vercel SSO protection remains enabled for preview deployments**, while every business-data API still requires a valid backend administrator role. The static portal also uses `noindex`, no-cache and a restrictive Content Security Policy.
 
 ## Business functions
 
+- Create staff account from the sign-in page (name, email, password and password confirmation). This uses `/api/v1/auth/register`, which creates a **non-admin account**. It does not grant access or notify the business owner automatically.
 - Administrator-only sign-in; the backend checks `users.is_admin` on each business endpoint
 - Operations overview; totals are not sales revenue
 - Edit **existing** catalog names, categories, descriptions, prices and visibility
@@ -34,7 +35,7 @@ The production Render CORS origins include:
 https://fila-by-deji.vercel.app,https://fila-by-deji-assets.vercel.app,https://fila-by-deji-admin.vercel.app,https://fila-deji-business.vercel.app
 ```
 
-Sign in only with an already registered account that has been explicitly granted the admin role through an authorized operator. Customer sign-ups never grant admin privileges. There is currently no verified production administrator account configured through this workflow; account promotion requires explicit owner verification and should not be performed automatically.
+New team members can create an account from the business portal. The same underlying account can be used for customer sign-in, but it **cannot** view the business dashboard until an authorized operator verifies the applicant and explicitly grants `users.is_admin=true` using the privileged operator procedure in `backend/app/admin.py`. There is no public self-approval endpoint or automated email/approval queue. The new staff member must contact the business owner for access. This workflow has not verified or automatically promoted any existing production administrator account.
 
 ## Build and test
 
