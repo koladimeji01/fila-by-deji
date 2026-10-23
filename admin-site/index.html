@@ -47,6 +47,14 @@
 </section>
 <p id="admin-status" class="admin-alert" role="status" aria-live="polite">Only authorized FÌLÀ staff can access the business dashboard.</p>
  <div id="admin-content" hidden>
+  <nav class="admin-dashboard-nav" aria-label="Dashboard sections">
+   <a href="#admin-overview-title">Overview</a>
+   <a href="#admin-products-title">Products</a>
+   <a href="#admin-inventory-title">Inventory</a>
+   <a href="#admin-orders-title">Enquiries</a>
+   <a href="#admin-reports-title">Reports</a>
+   <a href="#admin-settings-title">Settings</a>
+  </nav>
   <div class="admin-toolbar">
    <p><strong>FÌLÀ operations</strong><span class="admin-muted"> · secure API permissions apply to every action</span></p>
    <div class="admin-toolbar__buttons">
@@ -66,6 +74,11 @@
    </div>
    <p class="admin-muted">These counts are operational activity only. They do not represent paid orders or revenue.</p>
   </section>
+  <section class="admin-section" aria-labelledby="admin-products-title">
+   <div class="admin-section__heading"><div><h2 id="admin-products-title">Product catalogue</h2><p>Edit the three verified cap designs, prices, descriptions and visibility. Photos remain managed in GitHub.</p></div></div>
+   <p class="admin-muted">Changes update the live customer catalogue. Archiving hides a product; it does not delete customer history.</p>
+   <div id="admin-product-list" class="admin-product-list" aria-live="polite"></div>
+  </section>
   <section class="admin-section" aria-labelledby="admin-inventory-title">
    <div class="admin-section__heading"><div><h2 id="admin-inventory-title">Available inventory</h2><p>Adjust available units per size. Changes appear in the public catalog.</p></div></div>
    <div class="admin-table-scroll"><table class="admin-table"><thead><tr><th scope="col">Cap</th><th scope="col">Size</th><th scope="col">Available units</th><th scope="col">Update</th></tr></thead><tbody id="admin-stock-rows"></tbody></table></div>
@@ -74,6 +87,22 @@
    <div class="admin-section__heading"><div><h2 id="admin-orders-title">Customer enquiries and selections</h2><p>Only draft enquiries with a destination can receive a delivery quote. Quotes do not confirm a purchase.</p></div></div>
    <div id="admin-order-list" class="admin-order-list"></div>
    <button type="button" id="admin-more-orders" class="button button--dark" hidden>Load more</button>
+  </section>
+  <section class="admin-section" aria-labelledby="admin-reports-title">
+   <div class="admin-section__heading"><div><h2 id="admin-reports-title">Operational reports</h2><p>Review the latest 100 recorded selections and enquiries. These are not confirmed sales.</p></div>
+    <button class="button button--dark" type="button" id="admin-export-report">Export CSV</button>
+   </div>
+   <p id="admin-report-note" class="admin-muted">Reports become available after staff verification.</p>
+   <div id="admin-report-stats" class="admin-stats" aria-live="polite"></div>
+   <div id="admin-report-by-product" class="admin-report-list"></div>
+  </section>
+  <section class="admin-section" aria-labelledby="admin-settings-title">
+   <div class="admin-section__heading"><div><h2 id="admin-settings-title">Staff account & security</h2><p>Review the account used to access this restricted workspace.</p></div></div>
+   <div class="admin-settings-panel">
+    <dl><div><dt>Staff member</dt><dd id="admin-staff-name">—</dd></div><div><dt>Account email</dt><dd id="admin-staff-email">—</dd></div><div><dt>Permissions</dt><dd>Verified administrator</dd></div></dl>
+    <p class="admin-muted">Admin access is assigned only by an authorized database operator. Logging out ends this browser session. Credentials and user roles are never stored in the website source code.</p>
+    <button type="button" id="admin-settings-signout" class="button button--outline">Sign out of this session</button>
+   </div>
   </section>
  </div>
  <p class="admin-disclaimer">The private business data shown here is provided only after FastAPI verifies your administrator permissions. Payment collection is disabled. <a href="https://fila-by-deji.vercel.app/">Visit customer store ↗</a></p>
