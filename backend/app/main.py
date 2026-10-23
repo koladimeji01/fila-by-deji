@@ -11,7 +11,8 @@ from .database import get_db
 from .models import Order, OrderItem, Product, ProductInventory, User, SavedItem, DeliveryQuoteAudit
 from .schemas import (AdminOrderResponse, CreateDraftOrderRequest, LoginRequest, OrderItemResponse, OrderResponse,
                       ProductResponse, RegisterRequest, StockLevelResponse, StockUpdateRequest, TokenResponse, UserResponse,
-                      SaveItemRequest, SavedItemResponse, DeliveryQuoteRequest, AdminOverviewResponse)
+                      SaveItemRequest, SavedItemResponse, DeliveryQuoteRequest, AdminOverviewResponse,
+                      AdminProductResponse, AdminProductUpdateRequest)
 from .security import create_token, get_current_admin, get_current_user, hash_password, verify_password
 from .reservations import aware, cancel_order, expire_holds, reserve_order
 
@@ -270,8 +271,12 @@ def admin_overview(db: Session = Depends(get_db), admin: User = Depends(get_curr
     """Only actual administrators can view these operational totals."""
     expire_holds(db)
     active = db.scalar(select(func.count()).select_from(Product).where(Product.is_active.is_(True)))
-    available = db.scalar(select(func.coalesce(func.sum(ProductInventory.quantity), 0)))
-    sold_out = db.scalar(select(func.count()).select_from(ProductInventory).where(ProductInventory.quantity == 0))
+    # Only products actually visible to customers count in available stock KPIs.
+    available = db.scalar(select(func.coalesce(func.sum(ProductInventory.quantity), 0))
+                          .join(Product).where(Product.is_active.is_(True)))
+    sold_out = db.scalar(select(func.count()).select_from(ProductInventory)
+                         .join(Product).where(ProductInventory.quantity == 0,
+                                              Product.is_active.is_(True)))
     active_enquiry = (Order.status == 'draft') & Order.delivery_destination.is_not(None)
     total = db.scalar(select(func.count()).select_from(Order).where(active_enquiry))
     unquoted = db.scalar(select(func.count()).select_from(Order).where(
@@ -284,6 +289,39 @@ def admin_overview(db: Session = Depends(get_db), admin: User = Depends(get_curr
         total_enquiries=total, unquoted_enquiries=unquoted,
         quoted_enquiries=quoted, active_stock_holds=holds,
     )
+
+
+@app.get('/api/v1/admin/products', response_model=list[AdminProductResponse])
+def admin_products(db: Session = Depends(get_db), admin: User = Depends(get_current_admin)):
+    """All catalog products, including archived products. Admin role is checked in DB."""
+    expire_holds(db)
+    products = db.scalars(select(Product).order_by(Product.id)).all()
+    return [AdminProductResponse(**product_out(p).model_dump(), is_active=p.is_active) for p in products]
+
+
+@app.put('/api/v1/admin/products/{product_id}', response_model=AdminProductResponse)
+def admin_update_product(product_id: str, body: AdminProductUpdateRequest,
+                         db: Session = Depends(get_db), admin: User = Depends(get_current_admin)):
+    """Edit existing catalog information without granting image upload or public privilege."""
+    expire_holds(db)
+    product = db.get(Product, product_id)
+    if product is None:
+        raise HTTPException(404, 'Product not found')
+    if product.is_active and not body.is_active:
+        active_holds = db.scalar(
+            select(func.count()).select_from(OrderItem).join(Order, Order.id == OrderItem.order_id)
+            .where(OrderItem.product_id == product_id, Order.status == 'reserved')
+        )
+        if active_holds:
+            raise HTTPException(409, 'Cannot archive a product with active stock holds')
+    product.name = body.name
+    product.category = body.category
+    product.description = body.description
+    product.price_kobo = body.price_ngn * 100
+    product.is_active = body.is_active
+    db.commit()
+    db.refresh(product)
+    return AdminProductResponse(**product_out(product).model_dump(), is_active=product.is_active)
 
 
 @app.get('/api/v1/admin/inventory', response_model=list[StockLevelResponse])
