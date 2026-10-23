@@ -13,12 +13,13 @@ from sqlalchemy.orm import Session
 from .config import get_settings
 from .rate_limit import limit_request
 from .database import get_db
-from .models import Order, OrderItem, Product, ProductInventory, ProductPhoto, User, SavedItem, DeliveryQuoteAudit
+from .models import Order, OrderItem, Product, ProductInventory, ProductPhoto, User, SavedItem, DeliveryQuoteAudit, StaffApplication, StaffAccessAudit, utcnow
 from .schemas import (AdminOrderResponse, CreateDraftOrderRequest, LoginRequest, OrderItemResponse, OrderResponse,
                       ProductResponse, RegisterRequest, StockLevelResponse, StockUpdateRequest, TokenResponse, UserResponse,
                       SaveItemRequest, SavedItemResponse, DeliveryQuoteRequest, AdminOverviewResponse,
-                      AdminProductResponse, AdminProductUpdateRequest, AdminProductCreateRequest)
-from .security import create_token, get_current_admin, get_current_user, hash_password, verify_password
+                      AdminProductResponse, AdminProductUpdateRequest, AdminProductCreateRequest,
+                      StaffStatusResponse, StaffAccountResponse, StaffDecisionRequest)
+from .security import create_token, get_current_admin, get_current_user, get_current_staff_manager, hash_password, verify_password
 from .reservations import aware, cancel_order, expire_holds, reserve_order
 
 settings = get_settings()
@@ -101,6 +102,57 @@ def register(body: RegisterRequest, db: Session = Depends(get_db)):
         raise HTTPException(409, 'An account with this email already exists')
     db.refresh(user)
     return user
+
+
+@app.post('/api/v1/staff/register', response_model=UserResponse, status_code=status.HTTP_201_CREATED)
+def register_staff(body: RegisterRequest, db: Session = Depends(get_db)):
+    """Self-registration creates a pending request, never an administrator."""
+    user = User(name=body.name, email=str(body.email).lower(), password_hash=hash_password(body.password))
+    db.add(user)
+    try:
+        db.flush()
+        db.add(StaffApplication(user_id=user.id, status='pending'))
+        db.commit()
+    except IntegrityError:
+        db.rollback()
+        raise HTTPException(409, 'Account already exists. Sign in and request staff access instead.')
+    db.refresh(user)
+    return user
+
+
+@app.post('/api/v1/staff/apply', response_model=StaffStatusResponse)
+def apply_for_staff_access(db: Session = Depends(get_db), user: User = Depends(get_current_user)):
+    """Existing customer accounts may explicitly ask the owner for staff access."""
+    if user.is_admin:
+        return StaffStatusResponse(status='approved', message='This account already has staff access.')
+    application = db.get(StaffApplication, user.id)
+    if application is None:
+        db.add(StaffApplication(user_id=user.id, status='pending'))
+    elif application.status == 'pending':
+        return StaffStatusResponse(status='pending', message='Your request is awaiting approval.')
+    else:
+        application.status = 'pending'
+        application.requested_at = utcnow()
+        application.reviewed_at = None
+        application.reviewed_by = None
+    db.commit()
+    return StaffStatusResponse(status='pending', message='Access requested. A staff manager must approve your account.')
+
+
+@app.get('/api/v1/staff/status', response_model=StaffStatusResponse)
+def staff_application_status(db: Session = Depends(get_db), user: User = Depends(get_current_user)):
+    if user.is_admin:
+        return StaffStatusResponse(status='approved', message='Business dashboard access approved.')
+    application = db.get(StaffApplication, user.id)
+    current = application.status if application else 'not_requested'
+    description = {
+        'pending': 'Your staff request is awaiting management approval.',
+        'rejected': 'Your staff request was not approved. Contact the business owner.',
+        'revoked': 'Your staff access has been revoked. Contact the business owner.',
+        'not_requested': 'No staff request found. You can request access.',
+        'approved': 'Access must be reconfirmed by an administrator.',
+    }
+    return StaffStatusResponse(status=current, message=description.get(current, 'Access unavailable.'))
 
 
 @app.post('/api/v1/auth/login', response_model=TokenResponse)
@@ -269,6 +321,79 @@ def cancel_my_order(order_id: str, db: Session = Depends(get_db),
     if order is None:
         raise HTTPException(404, 'Order not found')
     return order_out(cancel_order(db, order))
+
+
+def staff_record(user: User, application: StaffApplication | None) -> StaffAccountResponse:
+    return StaffAccountResponse(
+        user_id=user.id, name=user.name, email=user.email,
+        status=('approved' if user.is_admin else application.status if application else 'not_requested'),
+        is_admin=user.is_admin, can_manage_staff=user.can_manage_staff,
+        requested_at=application.requested_at if application else None,
+        reviewed_at=application.reviewed_at if application else None,
+    )
+
+
+@app.get('/api/v1/admin/staff', response_model=list[StaffAccountResponse])
+def admin_list_staff(db: Session = Depends(get_db),
+                     manager: User = Depends(get_current_staff_manager)):
+    """Return staff applicants and existing administrators, never the customer list."""
+    requests = db.scalars(select(StaffApplication).order_by(
+        StaffApplication.requested_at.desc()).limit(200)).all()
+    applications = {r.user_id: r for r in requests}
+    active_admins = db.scalars(select(User).where(User.is_admin.is_(True))).all()
+    ids = set(applications) | {u.id for u in active_admins}
+    users = db.scalars(select(User).where(User.id.in_(ids))).all() if ids else []
+    result = [staff_record(user, applications.get(user.id)) for user in users]
+    priority = {'pending': 0, 'approved': 1, 'rejected': 2, 'revoked': 3}
+    return sorted(result, key=lambda item: (priority.get(item.status, 4), item.email))
+
+
+@app.post('/api/v1/admin/staff/{user_id}/decision', response_model=StaffAccountResponse)
+def admin_staff_decision(user_id: str, body: StaffDecisionRequest,
+                         db: Session = Depends(get_db),
+                         manager: User = Depends(get_current_staff_manager)):
+    """Approve pending applications, reject requests or revoke operational staff.
+
+    Staff cannot grant management powers. Privileges are checked live in the DB.
+    """
+    if user_id == manager.id:
+        raise HTTPException(409, 'You cannot change your own staff access.')
+    target = db.get(User, user_id, with_for_update=True)
+    if target is None:
+        raise HTTPException(404, 'Staff account not found')
+    application = db.get(StaffApplication, user_id, with_for_update=True)
+    if body.action in ('approve', 'reject'):
+        if application is None or application.status != 'pending' or target.is_admin:
+            raise HTTPException(409, 'Only pending staff requests may be approved or rejected')
+        if not target.is_active:
+            raise HTTPException(409, 'Inactive accounts cannot be approved')
+        if body.action == 'approve':
+            target.is_admin = True
+            target.can_manage_staff = False
+            application.status = 'approved'
+        else:
+            application.status = 'rejected'
+    elif body.action == 'revoke':
+        if not target.is_admin:
+            raise HTTPException(409, 'Only active staff access can be revoked')
+        if target.can_manage_staff:
+            raise HTTPException(403, 'A staff manager cannot be revoked from this page')
+        if application is None:
+            application = StaffApplication(user_id=target.id, status='revoked')
+            db.add(application)
+        else:
+            application.status = 'revoked'
+        target.is_admin = False
+        target.can_manage_staff = False
+    application.reviewed_by = manager.id
+    application.reviewed_at = utcnow()
+    db.add(StaffAccessAudit(
+        subject_user_id=target.id, actor_user_id=manager.id,
+        action={'approve':'approved','reject':'rejected','revoke':'revoked'}[body.action],
+    ))
+    db.commit()
+    db.refresh(target)
+    return staff_record(target, application)
 
 
 @app.get('/api/v1/admin/overview', response_model=AdminOverviewResponse)
