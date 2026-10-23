@@ -110,6 +110,28 @@ class OrderResponse(BaseModel):
     items: list[OrderItemResponse]
 
 
+class AdminProductResponse(ProductResponse):
+    is_active: bool
+
+
+class AdminProductUpdateRequest(BaseModel):
+    """Editable catalog fields; images remain controlled by deployed assets."""
+    model_config = ConfigDict(extra='forbid')
+    name: str = Field(min_length=2, max_length=150)
+    category: str = Field(min_length=2, max_length=50)
+    description: str = Field(min_length=5, max_length=2000)
+    price_ngn: int = Field(ge=100, le=10_000_000, strict=True)
+    is_active: bool
+
+    @field_validator('name', 'category', 'description')
+    @classmethod
+    def normalise_text(cls, value: str) -> str:
+        cleaned = ' '.join(value.split())
+        if not cleaned:
+            raise ValueError('Field cannot be blank')
+        return cleaned
+
+
 class StockUpdateRequest(BaseModel):
     model_config = ConfigDict(extra='forbid')
     available_quantity: int = Field(ge=0, le=100000)
