@@ -63,6 +63,7 @@ async function apiRequest(path,{method='GET',body,authorize=false}={}){
       ['admin-enquiries',data.total_enquiries],
       ['admin-unquoted',data.unquoted_enquiries],
       ['admin-quoted',data.quoted_enquiries],
+      ['admin-active-holds',data.active_stock_holds],
       ['admin-out-of-stock',data.out_of_stock_variants],
     ];
     for(const [id,value] of mapping)$a(id).textContent=Number.isInteger(value)?value:'—';
@@ -340,6 +341,16 @@ async function apiRequest(path,{method='GET',body,authorize=false}={}){
     $a('admin-refresh').addEventListener('click',loadDashboard);
     $a('admin-more-orders').addEventListener('click',loadOrders);
     $a('admin-export-report').addEventListener('click',exportReports);
+    $a('admin-release-expired').addEventListener('click',async()=>{
+      const button=$a('admin-release-expired');
+      button.disabled=true;
+      try{
+        const result=await apiRequest('/admin/reservations/release-expired',{method:'POST',authorize:true});
+        await loadDashboard();
+        feedback('Released '+Number(result.expired||0)+' expired stock hold(s). Active holds remain untouched.','success');
+      }catch(error){feedback('Unable to release expired holds: '+error.message,'error');}
+      finally{button.disabled=false;}
+    });
     const signOut=()=>{
       storeToken('');
       $a('admin-content').hidden=true;
