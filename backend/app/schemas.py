@@ -1,4 +1,5 @@
 from datetime import datetime
+from typing import Literal
 import ipaddress
 from urllib.parse import urlsplit
 from uuid import UUID
@@ -38,6 +39,27 @@ class UserResponse(BaseModel):
 class TokenResponse(BaseModel):
     access_token: str
     token_type: str = 'bearer'
+
+
+class StaffStatusResponse(BaseModel):
+    status: str
+    message: str
+
+
+class StaffAccountResponse(BaseModel):
+    user_id: str
+    name: str
+    email: EmailStr
+    status: str
+    is_admin: bool
+    can_manage_staff: bool
+    requested_at: datetime | None = None
+    reviewed_at: datetime | None = None
+
+
+class StaffDecisionRequest(BaseModel):
+    model_config = ConfigDict(extra='forbid')
+    action: Literal['approve', 'reject', 'revoke']
 
 
 class ProductResponse(BaseModel):
