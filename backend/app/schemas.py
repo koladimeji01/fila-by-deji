@@ -105,3 +105,17 @@ class StockLevelResponse(BaseModel):
 
 class AdminOrderResponse(OrderResponse):
     user_id: str
+
+
+class SaveItemRequest(BaseModel):
+    model_config = ConfigDict(extra='forbid')
+    quantity: int = Field(ge=1, le=10, strict=True)
+
+
+class SavedItemResponse(BaseModel):
+    product_id: str
+    product_name: str
+    size: str
+    quantity: int
+    unit_price_ngn: int
+    available_quantity: int

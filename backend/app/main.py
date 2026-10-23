@@ -8,9 +8,10 @@ from sqlalchemy.orm import Session
 from .config import get_settings
 from .rate_limit import limit_request
 from .database import get_db
-from .models import Order, OrderItem, Product, ProductInventory, User
+from .models import Order, OrderItem, Product, ProductInventory, User, SavedItem
 from .schemas import (AdminOrderResponse, CreateDraftOrderRequest, LoginRequest, OrderItemResponse, OrderResponse,
-                      ProductResponse, RegisterRequest, StockLevelResponse, StockUpdateRequest, TokenResponse, UserResponse)
+                      ProductResponse, RegisterRequest, StockLevelResponse, StockUpdateRequest, TokenResponse, UserResponse,
+                      SaveItemRequest, SavedItemResponse)
 from .security import create_token, get_current_admin, get_current_user, hash_password, verify_password
 from .reservations import aware, cancel_order, expire_holds, reserve_order
 
@@ -37,7 +38,7 @@ app.middleware('http')(limit_request)
 @app.middleware('http')
 async def private_response_headers(request: Request, call_next):
     response = await call_next(request)
-    if request.url.path.startswith(('/api/v1/auth/', '/api/v1/orders', '/api/v1/admin', '/api/v1/products')):
+    if request.url.path.startswith(('/api/v1/auth/', '/api/v1/orders', '/api/v1/admin', '/api/v1/products', '/api/v1/saved-items')):
         response.headers['Cache-Control'] = 'no-store'
     response.headers['X-Content-Type-Options'] = 'nosniff'
     response.headers['X-Frame-Options'] = 'DENY'
@@ -47,14 +48,15 @@ async def private_response_headers(request: Request, call_next):
 
 # Added last: CORS wraps rate-limit/error responses so approved browsers can read 429/503.
 app.add_middleware(CORSMiddleware, allow_origins=settings.allowed_origins, allow_credentials=False,
-                   allow_methods=['GET', 'POST', 'PUT'], allow_headers=['Authorization', 'Content-Type'])
+                   allow_methods=['GET', 'POST', 'PUT', 'DELETE'], allow_headers=['Authorization', 'Content-Type'])
 
 
 def product_out(product: Product) -> ProductResponse:
     return ProductResponse(id=product.id, name=product.name, category=product.category,
                            description=product.description, price_ngn=product.price_kobo // 100,
                            image_url=product.image_url,
-                           available_sizes=sorted((row.size for row in product.stock_levels if row.quantity > 0), key=int))
+                           available_sizes=sorted((row.size for row in product.stock_levels if row.quantity > 0), key=int),
+                           stock_by_size={row.size: row.quantity for row in product.stock_levels})
 
 
 def order_out(order: Order) -> OrderResponse:
@@ -118,6 +120,53 @@ def product(product_id: str, db: Session = Depends(get_db)):
     if entry is None or not entry.is_active:
         raise HTTPException(404, 'Product not found')
     return product_out(entry)
+
+
+def saved_out(item: SavedItem, db: Session) -> SavedItemResponse:
+    product = db.get(Product, item.product_id)
+    stock = db.get(ProductInventory, (item.product_id, item.size))
+    available = stock.quantity if stock and product and product.is_active else 0
+    return SavedItemResponse(
+        product_id=item.product_id, product_name=product.name if product else 'Unavailable cap',
+        size=item.size, quantity=item.quantity,
+        unit_price_ngn=product.price_kobo // 100 if product else 0,
+        available_quantity=available,
+    )
+
+
+@app.get('/api/v1/saved-items', response_model=list[SavedItemResponse])
+def saved_items(db: Session = Depends(get_db), user: User = Depends(get_current_user)):
+    rows = db.scalars(select(SavedItem).where(SavedItem.user_id == user.id)
+                      .order_by(SavedItem.created_at.desc(), SavedItem.product_id, SavedItem.size)).all()
+    return [saved_out(item, db) for item in rows]
+
+
+@app.put('/api/v1/saved-items/{product_id}/{size}', response_model=SavedItemResponse)
+def save_item(product_id: str, size: str, body: SaveItemRequest,
+              db: Session = Depends(get_db), user: User = Depends(get_current_user)):
+    if size not in ('32', '35', '39', '41'):
+        raise HTTPException(422, 'Unsupported cap size')
+    product = db.get(Product, product_id)
+    if product is None or not product.is_active:
+        raise HTTPException(404, 'Cap is no longer available to save')
+    item = db.get(SavedItem, (user.id, product_id, size))
+    if item is None:
+        item = SavedItem(user_id=user.id, product_id=product_id, size=size, quantity=body.quantity)
+        db.add(item)
+    else:
+        item.quantity = body.quantity
+    db.commit()
+    return saved_out(item, db)
+
+
+@app.delete('/api/v1/saved-items/{product_id}/{size}', status_code=status.HTTP_204_NO_CONTENT)
+def remove_saved_item(product_id: str, size: str,
+                      db: Session = Depends(get_db), user: User = Depends(get_current_user)):
+    item = db.get(SavedItem, (user.id, product_id, size))
+    if item:
+        db.delete(item)
+        db.commit()
+    return Response(status_code=status.HTTP_204_NO_CONTENT)
 
 
 @app.post('/api/v1/orders/drafts', response_model=OrderResponse, status_code=status.HTTP_201_CREATED)

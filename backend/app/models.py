@@ -72,3 +72,17 @@ class ProductInventory(Base):
     product: Mapped[Product] = relationship(back_populates='stock_levels')
     __table_args__ = (CheckConstraint('quantity >= 0', name='ck_inventory_nonnegative_quantity'),
                       CheckConstraint("size IN ('32', '35', '39', '41')", name='ck_inventory_valid_size'))
+
+
+class SavedItem(Base):
+    """A user's saved cap/size. Never reserves stock or represents an order."""
+    __tablename__ = 'saved_items'
+    user_id: Mapped[str] = mapped_column(ForeignKey('users.id', ondelete='CASCADE'), primary_key=True)
+    product_id: Mapped[str] = mapped_column(ForeignKey('products.id', ondelete='CASCADE'), primary_key=True)
+    size: Mapped[str] = mapped_column(String(4), primary_key=True)
+    quantity: Mapped[int] = mapped_column(Integer, nullable=False)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow, nullable=False)
+    __table_args__ = (
+        CheckConstraint("size IN ('32','35','39','41')", name='ck_saved_item_size'),
+        CheckConstraint('quantity BETWEEN 1 AND 10', name='ck_saved_item_quantity'),
+    )

@@ -23,6 +23,7 @@ RULES = {
     'draft': (20, 60),
     'reserve': (15, 60),
     'admin-write': (30, 60),
+    'saved-item': (30, 60),
 }
 
 _redis_script = """
@@ -46,6 +47,8 @@ def match_rule(method: str, path: str) -> str | None:
             return 'reserve'
         if path.startswith('/api/v1/admin/'):
             return 'admin-write'
+    if method in ('PUT', 'DELETE') and path.startswith('/api/v1/saved-items/'):
+        return 'saved-item'
     if method == 'PUT' and path.startswith('/api/v1/admin/'):
         return 'admin-write'
     return None

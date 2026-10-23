@@ -32,6 +32,7 @@ def check_readiness() -> list[str]:
                 'orders': {'id', 'status', 'reserved_until'},
                 'order_items': {'order_id', 'product_id'},
                 'product_inventory': {'product_id', 'size', 'quantity'},
+                'saved_items': {'user_id', 'product_id', 'size', 'quantity'},
             }
             tables = set(schema.get_table_names())
             for name, required in checks.items():
