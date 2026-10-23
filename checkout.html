@@ -31,7 +31,12 @@
   <div class="checkout-panel">
     <span class="eyebrow">THE NEXT STEP</span>
     <h2 id="checkout-title">How would you like to order?</h2>
-    <p class="checkout-lead">Review your selections, then choose your preferred ordering method. Our team will confirm stock and delivery before any payment.</p>
+    <p class="checkout-lead">Review your selections, add your delivery destination, and request a quote on WhatsApp. Signed-in customers receive an unpaid enquiry reference saved to their account.</p>
+    <form id="checkout-enquiry-form" class="checkout-destination-form" onsubmit="return false">
+      <label for="checkout-destination">Delivery destination (city and state)</label>
+      <input id="checkout-destination" name="delivery_destination" type="text" autocomplete="address-level2" placeholder="e.g., Ikeja, Lagos" minlength="3" maxlength="120" required aria-describedby="checkout-destination-hint">
+      <p id="checkout-destination-hint">Only your city and state are needed to request a quote. Exact delivery address, charges and delivery dates will be agreed with our team on WhatsApp.</p>
+    </form>
     <div class="checkout-methods">
       <section class="checkout-method" aria-labelledby="payment-title">
         <div class="checkout-method__head">
@@ -40,7 +45,7 @@
         </div>
         <h3 id="payment-title">Proceed to payment</h3>
         <p>Secure online payment is being prepared. We won't take a payment or mark an order as placed until a verified gateway is live.</p>
-        <button type="button" id="checkout-payment-option" class="button button--outline checkout-method__button" aria-describedby="payment-title">Proceed to payment</button>
+        <button type="button" id="checkout-payment-option" class="button button--outline checkout-method__button" aria-describedby="payment-title" disabled aria-disabled="true">Proceed to payment (coming soon)</button>
       </section>
       <section class="checkout-method checkout-method--featured" aria-labelledby="whatsapp-title">
         <div class="checkout-method__head">
@@ -48,7 +53,7 @@
           <span class="checkout-method__badge checkout-method__badge--live">Available now</span>
         </div>
         <h3 id="whatsapp-title">Contact on WhatsApp to order</h3>
-        <p>We'll prepare an enquiry with your selected caps, sizes, quantities and subtotal. Confirm availability, delivery and payment arrangements directly with our team.</p>
+        <p>We'll prepare an enquiry with your selected caps, sizes, quantities and subtotal. Signed-in requests are saved as unpaid enquiries. Confirm availability, shipping costs and payment arrangements directly with our team.</p>
         <a id="checkout-whatsapp" class="button button--gold checkout-method__button checkout-method__button--disabled" target="_blank" rel="noopener noreferrer" aria-disabled="true">Order on WhatsApp <span aria-hidden="true">↗</span></a>
       </section>
     </div>
@@ -59,7 +64,7 @@
     <h2 id="checkout-summary-title">Order summary</h2>
     <div id="checkout-items" class="checkout-items"></div>
     <div class="summary-total"><span>Subtotal</span><strong id="checkout-subtotal">₦0</strong></div>
-    <p>Shipping is not included. Prices and stock are subject to confirmation. No payment is collected on this page.</p>
+    <p>Shipping is not included and will be quoted after you provide your city and state. Prices and stock are subject to confirmation. No payment is collected on this page.</p>
   </aside>
 </section>
 </main><footer class="site-footer" id="footer"><div class="wrap">

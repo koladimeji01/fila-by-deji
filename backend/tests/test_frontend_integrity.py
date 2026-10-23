@@ -191,3 +191,17 @@ def test_stage2_wishlist_and_exact_stock_frontend():
     assert 'renderAccountWishlist()' in script
     assert 'id="account-wishlist"' in orders
     assert 'Sign in to sync saved caps' in cart
+
+def test_stage3_checkout_is_unpaid_delivery_enquiry_with_idempotent_reference():
+    page=(ROOT/'checkout.html').read_text()
+    script=(ROOT/'js/app.js').read_text()
+    orders=(ROOT/'orders.html').read_text()
+    assert 'id="checkout-destination"' in page
+    assert 'id="checkout-payment-option"' in page and 'disabled aria-disabled="true"' in page
+    assert "apiRequest('/orders/drafts',{method:'POST',authorize:true" in script
+    assert "client_request_id:requestId" in script
+    assert "sessionStorage.getItem('fila_checkout_request_v1')" in script
+    assert 'Unpaid enquiry reference:' in script
+    assert 'window.location.assign' in script
+    assert 'No payment has been made' in script
+    assert 'Order enquiries and previous selections' in orders

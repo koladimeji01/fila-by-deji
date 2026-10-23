@@ -125,19 +125,14 @@ function initCheckoutOptions(){
   const payment=$('checkout-payment-option');
   const whatsapp=$('checkout-whatsapp');
   const feedback=$('checkout-feedback');
-  if(!payment||!whatsapp||!feedback)return;
-
-  payment.addEventListener('click',()=>{
-    feedback.className='checkout-feedback checkout-feedback--notice';
-    feedback.textContent='Secure online payment is not yet enabled. Please choose WhatsApp ordering while we finish payment-gateway verification.';
-    feedback.focus();
-  });
+  const destinationInput=$('checkout-destination');
+  if(!payment||!whatsapp||!feedback||!destinationInput)return;
 
   const entries=Object.entries(cart);
   const selections=entries.map(([key,qty])=>{
     const chosen=productForCart(key);
     if(!chosen||!chosen.product.availableSizes.includes(chosen.size)||qty>availableForBag(chosen.product,chosen.size))return null;
-    return {name:chosen.product.name,size:chosen.size,quantity:qty,lineTotal:chosen.product.price*qty};
+    return {id:chosen.product.id,name:chosen.product.name,size:chosen.size,quantity:qty,lineTotal:chosen.product.price*qty};
   });
   const valid=entries.length>0&&selections.every(Boolean);
   if(!valid){
@@ -150,23 +145,75 @@ function initCheckoutOptions(){
   }
 
   const amount=selections.reduce((sum,item)=>sum+item.lineTotal,0);
-  const lines=selections.map(item=>`• ${item.name}\n  Size: ${item.size} | Quantity: ${item.quantity} | ${money(item.lineTotal)}`);
-  const message=[
-    'Hello FÌLÀ by Deji,',
-    '',
-    "I'd like to order these caps:",
-    ...lines,
-    '',
-    `Estimated subtotal: ${money(amount)} (excluding delivery).`,
-    '',
-    'Please confirm stock availability, delivery cost and how to complete my order.',
-    'I understand this message does not confirm a purchase or payment.'
-  ].join('\n');
+  const createMessage=(deliveryDestination,order)=>{
+    const lines=selections.map(item=>`• ${item.name}\n  Size: ${item.size} | Quantity: ${item.quantity} | ${money(item.lineTotal)}`);
+    const message=[
+      'Hello FÌLÀ by Deji,','',
+      'I would like a delivery quote and stock confirmation for:',...lines,'',
+      order?`Unpaid enquiry reference: ${order.id}`:'Guest enquiry (not saved to an account)',
+      `Delivery destination: ${deliveryDestination}`,
+      `Estimated subtotal: ${money(order?.total_ngn??amount)} (excluding delivery).`,'',
+      'Please confirm final price, stock availability, delivery charges and how to complete the order.',
+      'This is only an enquiry. No payment has been made or order confirmed.'
+    ].join('\n');
+    return message;
+  };
+  // Keep a real safe fallback href, but validate delivery details and save an
+  // idempotent server draft for signed-in customers before navigating away.
+  const message=createMessage('Please ask me for my city and state',null);
   whatsapp.href=`https://wa.me/2348067422794?text=${encodeURIComponent(message)}`;
   whatsapp.classList.remove('checkout-method__button--disabled');
   whatsapp.removeAttribute('aria-disabled');
   feedback.className='checkout-feedback';
-  feedback.textContent='WhatsApp will open with your cap selection ready to review. Press Send there to contact the seller.';
+  feedback.textContent='Enter your destination and select WhatsApp to request a delivery quote. You must press Send in WhatsApp to contact us.';
+
+  let sending=false;
+  whatsapp.addEventListener('click',async event=>{
+    event.preventDefault();
+    if(sending)return;
+    if(!destinationInput.reportValidity()){destinationInput.focus();return;}
+    const destination=destinationInput.value.trim().replace(/\s+/g,' ');
+    if(destination.length<3||destination.length>120){
+      feedback.textContent='Please provide a city and state (3–120 characters).';
+      feedback.className='checkout-feedback checkout-feedback--notice';
+      destinationInput.focus();return;
+    }
+    sending=true;whatsapp.classList.add('checkout-method__button--disabled');
+    whatsapp.setAttribute('aria-disabled','true');
+    feedback.className='checkout-feedback';
+    feedback.textContent='Preparing your enquiry. No payment will be taken.';
+    let savedOrder=null;
+    try{
+      if(token()){
+        const fingerprint=JSON.stringify({lines:[...entries].sort((a,b)=>a[0].localeCompare(b[0])),destination});
+        let requestId;
+        try{
+          const pending=JSON.parse(sessionStorage.getItem('fila_checkout_request_v1')||'null');
+          if(pending?.fingerprint===fingerprint)requestId=pending.id;
+        }catch{}
+        if(!requestId){
+          if(!globalThis.crypto?.randomUUID)throw new Error('Secure request IDs require HTTPS.');
+          requestId=globalThis.crypto.randomUUID();
+          try{sessionStorage.setItem('fila_checkout_request_v1',JSON.stringify({fingerprint,id:requestId}));}catch{}
+        }
+        savedOrder=await apiRequest('/orders/drafts',{method:'POST',authorize:true,body:{
+          client_request_id:requestId,delivery_destination:destination,
+          items:selections.map(item=>({product_id:item.id,size:item.size,quantity:item.quantity}))
+        }});
+        if(!savedOrder?.id||savedOrder.status!=='draft')throw new Error('The existing enquiry is no longer open. Please contact us or update your bag.');
+        feedback.textContent=`Unpaid request ${savedOrder.id.slice(0,8).toUpperCase()} saved. Opening WhatsApp; press Send to submit the enquiry.`;
+      }
+      // Never claim an order was sent just because WhatsApp was opened.
+      const message=createMessage(destination,savedOrder);
+      window.location.assign(`https://wa.me/2348067422794?text=${encodeURIComponent(message)}`);
+    }catch(err){
+      feedback.className='checkout-feedback checkout-feedback--notice';
+      feedback.textContent='Could not prepare enquiry: '+err.message+'. No payment was taken. Please retry.';
+    }finally{
+      sending=false;whatsapp.classList.remove('checkout-method__button--disabled');
+      whatsapp.removeAttribute('aria-disabled');
+    }
+  });
 }
 
 const SIZES=['32','35','39','41'];
@@ -365,7 +412,7 @@ async function initOrders(){
      const date=new Date(timestamp);
      return `Stock temporarily held${Number.isNaN(date.getTime())?'':` until ${date.toLocaleString('en-NG',{dateStyle:'medium',timeStyle:'short'})}`} · NOT paid`;
    }
-   return {draft:'Saved for later · stock not reserved',expired:'Hold expired · stock released',cancelled:'Cancelled'}[order.status]||'Not a paid order';
+   return {draft:order.delivery_destination?'Order enquiry · awaiting seller confirmation · NOT paid':'Saved selection · stock not reserved',expired:'Hold expired · stock released',cancelled:'Cancelled'}[order.status]||'Not a paid order';
  };
  const updateOrder=async(order,action,button)=>{
    if(action==='reserve'&&!window.confirm('Temporarily hold this selection for 15 minutes? No payment will be taken.'))return;
@@ -392,12 +439,13 @@ async function initOrders(){
        date.textContent=Number.isNaN(d.getTime())?'':d.toLocaleString('en-NG',{dateStyle:'medium',timeStyle:'short'});
        heading.append(name,date);
        const ref=document.createElement('p');ref.className='history-ref';ref.textContent=`Reference: ${order.id}`;
+       const destination=document.createElement('p');destination.className='history-ref';destination.textContent=order.delivery_destination?'Delivery quote destination: '+order.delivery_destination:'';
        const items=document.createElement('ul');items.className='history-items';
        for(const item of order.items||[])items.append(renderOrderItem(item));
        const foot=document.createElement('div');foot.className='history-card__foot';
        const label=document.createElement('span');label.textContent=labelFor(order);
        const total=document.createElement('strong');total.textContent=money(order.total_ngn);foot.append(label,total);
-       card.append(heading,ref,items,foot);
+       card.append(heading,ref);if(order.delivery_destination)card.append(destination);card.append(items,foot);
        if(['draft','reserved'].includes(order.status)){
          const actions=document.createElement('div');actions.className='history-actions';
          if(order.status==='draft'){

@@ -215,3 +215,11 @@ img.image-unavailable{opacity:0!important}.product-card__media:has(img.image-una
   .bag-line__top{gap:8px;flex-wrap:wrap}
   .bag-line__bottom{gap:8px}
 }
+
+/* Stage 3 — destination-only delivery quote field. No payment or address collection. */
+.checkout-destination-form{background:#fbf8f0;border:1px solid #eae3ce;border-radius:10px;padding:18px;margin:17px 0 25px}
+.checkout-destination-form label{display:block;font-size:13px;font-weight:700;color:#242424;margin-bottom:8px}
+.checkout-destination-form input{display:block;width:100%;min-height:45px;border:1px solid #c9c4b7;background:#fff;border-radius:7px;padding:10px 13px;font:inherit;font-size:14px;color:#252525}
+.checkout-destination-form input:focus-visible{outline:3px solid var(--gold);outline-offset:2px}
+.checkout-destination-form p{font-size:12px;line-height:1.65;color:#555149;margin:10px 0 0}
+#checkout-payment-option:disabled{cursor:not-allowed;opacity:.55;pointer-events:none}
