@@ -4,13 +4,14 @@ This is the standalone **staff-only** administration frontend. It lives in `admi
 
 ## Live project
 
-- Business portal: https://fila-deji-business.vercel.app
+- Business portal: https://fila-by-deji-admin.vercel.app
+- Alternate verified domain: https://fila-deji-business.vercel.app
 - Customer storefront: https://fila-by-deji.vercel.app
 - Vercel project: `fila-by-deji-admin`
 - Git source: `koladimeji01/fila-by-deji`, branch `main`, root directory `admin-site`
 - Backend: `https://fila-by-deji-api.onrender.com/api/v1`
 
-The former proposed `fila-by-deji-admin.vercel.app` alias was already assigned to another Vercel project, so `fila-deji-business.vercel.app` is the verified project domain. The Vercel admin project has **SSO protection enabled for all deployments**, plus `noindex`, no-cache and a restrictive Content Security Policy.
+Both admin URLs are now verified and assigned to the standalone administration project. Use `fila-by-deji-admin.vercel.app` as the primary staff portal. The Vercel admin project has **SSO protection enabled for all deployments**, plus `noindex`, no-cache and a restrictive Content Security Policy.
 
 ## Business functions
 
@@ -30,7 +31,7 @@ Products' image files must be committed and deployed from the storefront reposit
 The production Render CORS origins include:
 
 ```text
-https://fila-by-deji.vercel.app,https://fila-by-deji-assets.vercel.app,https://fila-deji-business.vercel.app
+https://fila-by-deji.vercel.app,https://fila-by-deji-assets.vercel.app,https://fila-by-deji-admin.vercel.app,https://fila-deji-business.vercel.app
 ```
 
 Sign in only with an already registered account that has been explicitly granted the admin role through an authorized operator. Customer sign-ups never grant admin privileges. There is currently no verified production administrator account configured through this workflow; account promotion requires explicit owner verification and should not be performed automatically.
