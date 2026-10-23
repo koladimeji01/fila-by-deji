@@ -57,13 +57,25 @@ async function apiRequest(path,{method='GET',body,authorize=false}={}){
     }finally{clearTimeout(timer);}
   }
 }
+function catalogImage(product){
+  const local='assets/'+product.id+'.jpg';
+  if(['ceremonial','classic','premium'].includes(product.id))return local;
+  if(typeof product.image_url==='string'){
+    try{
+      const url=new URL(product.image_url);
+      if(url.protocol==='https:' && !url.username && !url.password &&
+         /\\.(?:jpg|jpeg|png|webp)$/i.test(url.pathname)) return url.href;
+    }catch{/* invalid URL: display the standard missing-image fallback */}
+  }
+  return local;
+}
 async function loadProducts(){
   const data=await apiRequest('/products');
   if(!Array.isArray(data)) throw new Error('The API returned an invalid catalog.');
   PRODUCTS=data.filter(p=>typeof p.id==='string'&&/^[a-z0-9_-]{1,60}$/.test(p.id)&&typeof p.name==='string'&&Number.isSafeInteger(p.price_ngn)&&p.price_ngn>=0)
     .map(p=>({id:p.id,name:p.name,category:p.category||'',description:p.description||'',price:p.price_ngn,
-      // All images are shipped locally with this site: never trust a remote URL in the API response.
-      image:`assets/${p.id}.jpg`,availableSizes:Array.isArray(p.available_sizes)?p.available_sizes.filter(size=>SIZES.includes(size)):[],stockBySize:p.stock_by_size&&typeof p.stock_by_size==='object'?p.stock_by_size:{}}));
+      // Stock images are local; new photos are HTTPS URLs validated by FastAPI.
+      image:catalogImage(p),availableSizes:Array.isArray(p.available_sizes)?p.available_sizes.filter(size=>SIZES.includes(size)):[],stockBySize:p.stock_by_size&&typeof p.stock_by_size==='object'?p.stock_by_size:{}}));
   if(!PRODUCTS.length)throw new Error('No active products were returned. Run python -m app.seed in backend/.');
 }
 function showCatalogError(message){
