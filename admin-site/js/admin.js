@@ -682,13 +682,13 @@ async function uploadProductWithPhoto(details, file){
         storeToken(session.access_token);
         const granted=await loadDashboard();
         if(!granted){
-          storeToken('');
           try{
             const application=await apiRequest('/staff/status',{authorize:true});
             state.textContent=application.message;
           }catch{
             state.textContent='This account is not authorized to manage FÌLÀ. Contact the owner.';
           }
+          storeToken('');
           return;
         }
         form.reset();state.textContent='';
