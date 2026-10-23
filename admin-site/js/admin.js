@@ -35,6 +35,62 @@ async function apiRequest(path,{method='GET',body,authorize=false}={}){
     target.textContent=message;
     target.className='admin-alert'+(kind?' admin-alert--'+kind:'');
   };
+  // Registration never gives anyone staff privileges. /auth/register creates a
+  // regular user; administrator access is explicitly granted outside this form.
+  function showAuthPanel(mode){
+    const signup=mode==='signup';
+    $a('admin-login').hidden=signup;
+    $a('admin-signup').hidden=!signup;
+    $a('admin-content').hidden=true;
+    $a('admin-login-feedback').textContent='';
+    $a('admin-signup-feedback').textContent='';
+    feedback(signup
+      ? 'New accounts require approval by the FÌLÀ business administrator before dashboard access.'
+      : 'Sign in with an approved staff account to continue.','notice');
+    $a(signup?'admin-signup-name':'admin-email').focus();
+  }
+  async function submitSignup(event){
+    event.preventDefault();
+    const form=$a('admin-signup-form');
+    if(!form.reportValidity())return;
+    const name=$a('admin-signup-name').value.trim().replace(/\\s+/g,' ');
+    const email=$a('admin-signup-email').value.trim();
+    const password=$a('admin-signup-password').value;
+    const confirmation=$a('admin-signup-confirm').value;
+    const status=$a('admin-signup-feedback');
+    if(name.length<2){
+      status.textContent='Please enter your full name (at least two characters).';
+      $a('admin-signup-name').focus();return;
+    }
+    if(password.length<12 || password.length>128){
+      status.textContent='Your password must be between 12 and 128 characters.';
+      $a('admin-signup-password').focus();return;
+    }
+    if(password!==confirmation){
+      status.textContent='Passwords do not match. Please check both fields.';
+      $a('admin-signup-confirm').focus();return;
+    }
+    const submit=$a('admin-signup-submit');
+    submit.disabled=true;
+    status.textContent='Creating your account…';
+    try{
+      const account=await apiRequest('/auth/register',{
+        method:'POST',body:{name,email,password}
+      });
+      if(!account?.id)throw new Error('Registration could not be confirmed.');
+      // Never store a token or assume the new account is an administrator.
+      form.reset();
+      showAuthPanel('login');
+      $a('admin-email').value=email;
+      $a('admin-login-feedback').textContent=
+        'Account created. Ask the business owner to approve staff access before signing in.';
+      feedback('Account created successfully. Business dashboard access is restricted until an administrator approves your account.','success');
+    }catch(error){
+      status.textContent='Unable to create account: '+error.message;
+    }finally{
+      submit.disabled=false;
+    }
+  }
   async function verified(){
     if(!token()){
       feedback('Sign in with an authorized staff account to continue.','notice');
@@ -338,6 +394,9 @@ async function apiRequest(path,{method='GET',body,authorize=false}={}){
   }
   document.addEventListener('DOMContentLoaded',()=>{
     if(document.body.dataset.page!=='admin')return;
+    $a('admin-show-signup').addEventListener('click',()=>showAuthPanel('signup'));
+    $a('admin-show-login').addEventListener('click',()=>showAuthPanel('login'));
+    $a('admin-signup-form').addEventListener('submit',submitSignup);
     $a('admin-refresh').addEventListener('click',loadDashboard);
     $a('admin-more-orders').addEventListener('click',loadOrders);
     $a('admin-export-report').addEventListener('click',exportReports);
