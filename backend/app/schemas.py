@@ -1,4 +1,6 @@
 from datetime import datetime
+import ipaddress
+from urllib.parse import urlsplit
 from uuid import UUID
 from pydantic import BaseModel, ConfigDict, EmailStr, Field, field_validator, model_validator
 
@@ -131,6 +133,62 @@ class AdminProductUpdateRequest(BaseModel):
         if len(cleaned) < min_length:
             raise ValueError('Field is too short after removing whitespace')
         return cleaned
+
+
+class AdminProductCreateRequest(BaseModel):
+    """Create a catalog entry from staff input; image must already be hosted."""
+    model_config = ConfigDict(extra='forbid')
+    name: str = Field(min_length=2, max_length=150)
+    category: str = Field(min_length=2, max_length=50)
+    description: str = Field(min_length=5, max_length=2000)
+    price_ngn: int = Field(ge=100, le=10_000_000, strict=True)
+    image_url: str = Field(min_length=12, max_length=300)
+    is_active: bool = False
+    stock_by_size: dict[str, int] = Field(default_factory=dict)
+
+    @field_validator('name', 'category', 'description')
+    @classmethod
+    def strip_text(cls, value: str, info) -> str:
+        cleaned = ' '.join(value.split())
+        required = 5 if info.field_name == 'description' else 2
+        if len(cleaned) < required:
+            raise ValueError('Enter meaningful product information')
+        return cleaned
+
+    @field_validator('image_url')
+    @classmethod
+    def validate_image_url(cls, value: str) -> str:
+        try:
+            parts = urlsplit(value)
+            host = parts.hostname
+            if parts.scheme != 'https' or not host or parts.username or parts.password:
+                raise ValueError()
+            if parts.port not in (None, 443) or parts.fragment:
+                raise ValueError()
+            if host.lower() == 'localhost' or host.lower().endswith(('.local', '.internal')):
+                raise ValueError()
+            try:
+                address = ipaddress.ip_address(host)
+                if not address.is_global:
+                    raise ValueError()
+            except ValueError as error:
+                # An invalid/private IP literal must be rejected; domain names are fine.
+                if all(c in '0123456789.:' for c in host):
+                    raise ValueError() from error
+            if not parts.path.lower().endswith(('.jpg', '.jpeg', '.png', '.webp')):
+                raise ValueError()
+        except (ValueError, TypeError):
+            raise ValueError('Use a public HTTPS image URL ending in .jpg, .jpeg, .png or .webp')
+        return value
+
+    @field_validator('stock_by_size')
+    @classmethod
+    def validate_stock(cls, values: dict[str, int]) -> dict[str, int]:
+        if not set(values).issubset(SIZES):
+            raise ValueError('Invalid cap size')
+        if any(type(quantity) is not int or quantity < 0 or quantity > 100000 for quantity in values.values()):
+            raise ValueError('Stock must be a whole number between 0 and 100000')
+        return values
 
 
 class StockUpdateRequest(BaseModel):
