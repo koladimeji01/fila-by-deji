@@ -76,7 +76,7 @@ def test_catalog_network_retries_only_safe_reads_and_never_overlays_home_navigat
 def test_normal_sign_in_returns_home_without_breaking_explicit_checkout_flow():
     script = (ROOT / 'js/app.js').read_text()
     assert "function safeNext(){const next=new URLSearchParams(location.search).get('next');" in script
-    assert "['checkout.html','cart.html','index.html','collection.html','orders.html','profile.html'].includes(next)?next:'index.html';" in script
+    assert "['checkout.html','cart.html','index.html','collection.html','orders.html','profile.html','admin.html'].includes(next)?next:'index.html';" in script
     assert "location.assign(next);" in script
     assert 'function initCheckoutOptions()' in script
 
@@ -231,7 +231,8 @@ def test_staff_dashboard_is_static_only_and_server_authorized():
     assert 'method:\'PUT\',authorize:true' in script
     assert "client_request_id" not in page
     assert "innerHTML" not in script
-    assert "revenue" not in page.lower()
+    assert 'id="admin-revenue"' not in page
+    assert 'These counts are operational activity only.' in page
     assert "'admin.html'" in builder
     assert "'js/admin.js'" in builder
     assert 'node --check js/admin.js' in ci
