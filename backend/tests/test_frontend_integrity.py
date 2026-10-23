@@ -116,7 +116,7 @@ def test_save_for_later_moves_bag_items_locally_but_keeps_server_saved_selection
     script=(ROOT / 'js/app.js').read_text()
     assert 'id="saved-local-items"' in cart
     assert 'Save for later' in cart
-    assert 'SAVED_KEY=' in script and 'function saveBagItemForLater(' in script
+    assert 'SAVED_KEY=' in script and 'async function saveBagItemForLater(' in script
     assert 'function moveSavedItemToBag(' in script
     assert "function initCheckoutOptions()" in script
     assert "https://wa.me/2348067422794?text=" in script
@@ -180,3 +180,14 @@ def test_collection_shows_only_real_database_products():
     assert "assets/ceremonial.jpg" in builder
     assert "assets/classic.jpg" in builder
     assert "assets/premium.jpg" in builder
+
+def test_stage2_wishlist_and_exact_stock_frontend():
+    script=(ROOT / 'js/app.js').read_text()
+    cart=(ROOT / 'cart.html').read_text()
+    orders=(ROOT / 'orders.html').read_text()
+    assert 'stock_by_size' in script and 'availableForBag(' in script
+    assert "apiRequest('/saved-items',{authorize:true})" in script
+    assert "method:'PUT'" in script and "method:'DELETE'" in script
+    assert 'renderAccountWishlist()' in script
+    assert 'id="account-wishlist"' in orders
+    assert 'Sign in to sync saved caps' in cart

@@ -63,7 +63,7 @@ async function loadProducts(){
   PRODUCTS=data.filter(p=>typeof p.id==='string'&&/^[a-z0-9_-]{1,60}$/.test(p.id)&&typeof p.name==='string'&&Number.isSafeInteger(p.price_ngn)&&p.price_ngn>=0)
     .map(p=>({id:p.id,name:p.name,category:p.category||'',description:p.description||'',price:p.price_ngn,
       // All images are shipped locally with this site: never trust a remote URL in the API response.
-      image:`assets/${p.id}.jpg`,availableSizes:Array.isArray(p.available_sizes)?p.available_sizes.filter(size=>SIZES.includes(size)):[]}));
+      image:`assets/${p.id}.jpg`,availableSizes:Array.isArray(p.available_sizes)?p.available_sizes.filter(size=>SIZES.includes(size)):[],stockBySize:p.stock_by_size&&typeof p.stock_by_size==='object'?p.stock_by_size:{}}));
   if(!PRODUCTS.length)throw new Error('No active products were returned. Run python -m app.seed in backend/.');
 }
 function showCatalogError(message){
@@ -136,7 +136,7 @@ function initCheckoutOptions(){
   const entries=Object.entries(cart);
   const selections=entries.map(([key,qty])=>{
     const chosen=productForCart(key);
-    if(!chosen||!chosen.product.availableSizes.includes(chosen.size)||qty>10)return null;
+    if(!chosen||!chosen.product.availableSizes.includes(chosen.size)||qty>availableForBag(chosen.product,chosen.size))return null;
     return {name:chosen.product.name,size:chosen.size,quantity:qty,lineTotal:chosen.product.price*qty};
   });
   const valid=entries.length>0&&selections.every(Boolean);
@@ -188,29 +188,69 @@ function readSaved(){try{
   return Object.fromEntries(Object.entries(data).filter(([key,n])=>/^[a-z0-9_-]{1,60}:(32|35|39|41)$/.test(key)&&Number.isInteger(n)&&n>0&&n<=99));
 }catch{return {}}}
 let savedForLater=readSaved();
-function saveSaved(){try{localStorage.setItem(SAVED_KEY,JSON.stringify(savedForLater))}catch{}}
-function saveBagItemForLater(key){
-  const amount=cart[key];if(!amount)return;
-  savedForLater[key]=Math.min(99,(savedForLater[key]||0)+amount);
-  delete cart[key];saveSaved();saveCart();renderBag();
-  toast('Saved for later on this device. No stock reserved.');
+let accountSavedItems=[];
+const stockCount=(product,size)=>Math.max(0,Number(product?.stockBySize?.[size])||0);
+const availableForBag=(product,size)=>Math.min(10,stockCount(product,size));
+async function syncSavedItems(){
+  if(!token()){accountSavedItems=[];return;}
+  const remote=await apiRequest('/saved-items',{authorize:true});
+  if(!Array.isArray(remote))throw new Error('Saved items could not be loaded.');
+  for(const [key,qty] of Object.entries(savedForLater)){
+    const selection=productForCart(key);if(!selection)continue;
+    const previous=remote.find(x=>x.product_id===selection.product.id&&x.size===selection.size);
+    const target=Math.min(10,Math.max(qty,previous?.quantity||0));
+    try{
+      await apiRequest(`/saved-items/${selection.product.id}/${selection.size}`,{authorize:true,method:'PUT',body:{quantity:target}});
+      delete savedForLater[key];saveSaved();
+    }catch(err){console.warn('Saved item remains on this device:',err.message);}
+  }
+  accountSavedItems=await apiRequest('/saved-items',{authorize:true});
 }
-function moveSavedItemToBag(key){
-  const amount=savedForLater[key];if(!amount)return;
+async function updateAccountSavedItem(key,qty){
   const sel=productForCart(key);
-  if(!sel||!sel.product.availableSizes.includes(sel.size)){toast('This size is unavailable. Keep it saved for later.');return;}
-  const space=10-(cart[key]||0);
-  if(space<=0){toast('Your bag already has the maximum quantity for this size.');return;}
-  const moved=Math.min(amount,space);
-  cart[key]=(cart[key]||0)+moved;
-  if(amount===moved)delete savedForLater[key];else savedForLater[key]-=moved;
-  saveSaved();saveCart();renderBag();
-  toast('Moved into your shopping bag.');
+  if(!sel)throw new Error('Cap is unavailable.');
+  const url=`/saved-items/${sel.product.id}/${sel.size}`;
+  if(qty===0)await apiRequest(url,{authorize:true,method:'DELETE'});
+  else await apiRequest(url,{authorize:true,method:'PUT',body:{quantity:Math.min(10,qty)}});
+  accountSavedItems=await apiRequest('/saved-items',{authorize:true});
+}
+
+function saveSaved(){try{localStorage.setItem(SAVED_KEY,JSON.stringify(savedForLater))}catch{}}
+async function saveBagItemForLater(key){
+ const amount=cart[key];if(!amount)return;
+ if(token()){
+   const sel=productForCart(key);if(!sel){toast('Cap unavailable.');return;}
+   try{
+     const previous=accountSavedItems.find(x=>x.product_id===sel.product.id&&x.size===sel.size);
+     await updateAccountSavedItem(key,Math.min(10,amount+(previous?.quantity||0)));
+     delete cart[key];saveCart();renderBag();toast('Saved to your account. No stock reserved.');
+   }catch(err){toast('Could not save to account: '+err.message);}
+ }else{
+   savedForLater[key]=Math.min(10,(savedForLater[key]||0)+amount);
+   delete cart[key];saveSaved();saveCart();renderBag();toast('Saved on this device. Sign in to sync.');
+ }
+}
+async function moveSavedItemToBag(key){
+ const sel=productForCart(key);
+ const remote=token()?accountSavedItems.find(x=>`${x.product_id}:${x.size}`===key):null;
+ const amount=remote?.quantity||savedForLater[key];if(!amount)return;
+ const space=Math.max(0,availableForBag(sel?.product,sel?.size)-(cart[key]||0));
+ if(space<=0){toast('Requested size is currently unavailable.');return;}
+ const moved=Math.min(space,amount);
+ if(remote){
+   try{await updateAccountSavedItem(key,amount-moved);}catch(err){toast('Could not update account: '+err.message);return;}
+ }else{
+   if(amount===moved)delete savedForLater[key];else savedForLater[key]-=moved;
+   saveSaved();
+ }
+ cart[key]=(cart[key]||0)+moved;saveCart();renderBag();
+ if(page==='orders')renderAccountWishlist();
+ toast('Moved into your shopping bag.');
 }
 function renderSavedForLater(){
   const target=$('saved-local-items');if(!target)return;
   target.replaceChildren();
-  const entries=Object.entries(savedForLater);
+  const entries=token()?accountSavedItems.map(x=>[`${x.product_id}:${x.size}`,x.quantity]):Object.entries(savedForLater);
   const count=$('saved-local-count');if(count)count.textContent=`${entries.length} ${entries.length===1?'style':'styles'}`;
   const empty=$('saved-local-empty');if(empty)empty.hidden=entries.length>0;
   for(const [key,qty] of entries){
@@ -222,11 +262,11 @@ function renderSavedForLater(){
     const actions=document.createElement('div');actions.className='saved-local-actions';
     if(sel){
       const move=document.createElement('button');move.type='button';move.className='button button--dark';move.textContent='Move to bag';
-      move.disabled=!sel.product.availableSizes.includes(sel.size);
+      move.disabled=!sel.product.availableSizes.includes(sel.size)||stockCount(sel.product,sel.size)<1;
       move.addEventListener('click',()=>moveSavedItemToBag(key));actions.append(move);
     }
     const remove=document.createElement('button');remove.type='button';remove.className='remove-line';remove.textContent='Remove';
-    remove.addEventListener('click',()=>{delete savedForLater[key];saveSaved();renderSavedForLater()});actions.append(remove);
+    remove.addEventListener('click',async()=>{if(token()){try{await updateAccountSavedItem(key,0);}catch(err){toast('Could not remove saved cap: '+err.message);return;}}else{delete savedForLater[key];saveSaved();}renderSavedForLater();if(page==='orders')renderAccountWishlist();});actions.append(remove);
     content.append(title,subtitle,actions);item.append(content);target.append(item);
   }
 }
@@ -268,8 +308,8 @@ function initCollection(){$('search-input')?.addEventListener('input',renderColl
 function initDetails(){const id=new URLSearchParams(location.search).get('product');const product=productById(id);if(!product){showCatalogError('This cap could not be found. Please return to the collection.');document.querySelector('.product-layout')?.remove();document.getElementById('related-products')?.replaceChildren();return;}$('product-title').textContent=product.name;$('product-description').textContent=product.description;$('product-price').textContent=money(product.price);$('product-category').textContent=`${product.category.toUpperCase()} COLLECTION`;$('crumb-product').textContent=product.name;document.title=`${product.name} | FÌLÀ by Deji`;const photo=$('product-photo');photo.src=product.image;photo.alt=product.name;
  const options=SIZES.map(size=>{const btn=document.createElement('button');btn.type='button';btn.className='size-option';btn.textContent=size;btn.disabled=!product.availableSizes.includes(size);btn.setAttribute('aria-pressed','false');btn.setAttribute('aria-label',`Choose cap size ${size}${btn.disabled?' — out of stock':''}`);btn.addEventListener('click',()=>{selectedSize=size;$('selected-size').textContent=`Size ${size} selected`;$('size-error').hidden=true;document.querySelectorAll('.size-option').forEach(b=>b.setAttribute('aria-pressed',String(b===btn)))});return btn});$('size-options').replaceChildren(...options);
  if(!product.availableSizes.length){$('selected-size').textContent='This cap is currently out of stock.';$('add-to-bag').disabled=true;}
- const updateQty=delta=>{quantity=Math.min(10,Math.max(1,quantity+delta));$('quantity-display').textContent=String(quantity)};$('minus-quantity').addEventListener('click',()=>updateQty(-1));$('plus-quantity').addEventListener('click',()=>updateQty(1));$('add-to-bag').addEventListener('click',()=>{if(!selectedSize){$('size-error').hidden=false;options.find(option=>!option.disabled)?.focus();return}const key=`${product.id}:${selectedSize}`;const previous=cart[key]||0;cart[key]=Math.min(10,previous+quantity);saveCart();const added=cart[key]-previous;toast(added?`${added} × ${product.name} added to your bag`:'Maximum quantity of 10 reached for this size.');$('add-to-bag').textContent='Added to bag ✓';setTimeout(()=>{const btn=$('add-to-bag');if(btn)btn.innerHTML='Add to bag'},1700)});renderGrid('related-products',PRODUCTS.filter(p=>p.id!==product.id))}
-function updateCart(key,delta){const num=(cart[key]||0)+delta;if(num<=0)delete cart[key];else cart[key]=Math.min(num,10);saveCart();renderBag();renderCheckout()}
+ const updateQty=delta=>{quantity=Math.min(availableForBag(product,selectedSize)||10,Math.max(1,quantity+delta));$('quantity-display').textContent=String(quantity)};$('minus-quantity').addEventListener('click',()=>updateQty(-1));$('plus-quantity').addEventListener('click',()=>updateQty(1));$('add-to-bag').addEventListener('click',()=>{if(!selectedSize){$('size-error').hidden=false;options.find(option=>!option.disabled)?.focus();return}const key=`${product.id}:${selectedSize}`;const previous=cart[key]||0;cart[key]=Math.min(availableForBag(product,selectedSize),previous+quantity);saveCart();const added=cart[key]-previous;toast(added?`${added} × ${product.name} added to your bag`:'Maximum quantity of 10 reached for this size.');$('add-to-bag').textContent='Added to bag ✓';setTimeout(()=>{const btn=$('add-to-bag');if(btn)btn.innerHTML='Add to bag'},1700)});renderGrid('related-products',PRODUCTS.filter(p=>p.id!==product.id))}
+function updateCart(key,delta){const num=(cart[key]||0)+delta;const sel=productForCart(key);if(num<=0)delete cart[key];else cart[key]=Math.min(num,availableForBag(sel?.product,sel?.size));saveCart();renderBag();renderCheckout()}
 function renderBag(){const list=$('bag-items');if(!list)return;list.replaceChildren();const items=Object.entries(cart);const visibleCount=items.reduce((sum,[,qty])=>sum+qty,0);$('bag-items-count').textContent=`${visibleCount} ${visibleCount===1?'item':'items'}`;$('bag-empty').hidden=items.length>0;
  for(const [key,qty] of items){const selection=productForCart(key);if(!selection){const row=document.createElement('article');row.className='bag-line';const label=document.createElement('div');label.textContent='A previously saved cap is no longer in the collection.';const remove=document.createElement('button');remove.className='remove-line';remove.type='button';remove.textContent='Remove unavailable item';remove.addEventListener('click',()=>{delete cart[key];saveCart();renderBag();});row.append(label,remove);list.append(row);continue;}const {product:p,size}=selection;const row=document.createElement('article');row.className='bag-line';const img=makeImage(p.image,p.name);const main=document.createElement('div');const top=document.createElement('div');top.className='bag-line__top';const info=document.createElement('div');const h=document.createElement('h3');h.textContent=p.name;const sizeP=document.createElement('p');sizeP.textContent=`Size ${size} · ${p.category}`;info.append(h,sizeP);const price=document.createElement('strong');price.className='bag-line__price';price.textContent=money(p.price*qty);top.append(info,price);
  const bottom=document.createElement('div');bottom.className='bag-line__bottom';const controls=document.createElement('div');controls.className='mini-quantity';const minus=document.createElement('button');minus.type='button';minus.textContent='−';minus.setAttribute('aria-label',`Remove one ${p.name} size ${size}`);minus.addEventListener('click',()=>updateCart(key,-1));const number=document.createElement('span');number.textContent=qty;const plus=document.createElement('button');plus.type='button';plus.textContent='+';plus.setAttribute('aria-label',`Add one ${p.name} size ${size}`);plus.addEventListener('click',()=>updateCart(key,1));controls.append(minus,number,plus);const actions=document.createElement('div');actions.className='bag-line__actions';
@@ -282,7 +322,7 @@ function renderBag(){const list=$('bag-items');if(!list)return;list.replaceChild
  remove.innerHTML='<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 7h16M10 3h4M6 7l1 14h10l1-14M10 11v6M14 11v6"/></svg>';
  remove.addEventListener('click',()=>{delete cart[key];saveCart();renderBag()});
  actions.append(saveLater,remove);bottom.append(controls,actions);main.append(top,bottom);row.append(img,main);list.append(row)}
- const total=Object.entries(cart).reduce((sum,[key,q])=>sum+(productForCart(key)?.product.price||0)*q,0);$('summary-subtotal').textContent=money(total);$('summary-total').textContent=money(total);const checkout=$('checkout-link');if(checkout){const unavailable=items.some(([key,n])=>{const item=productForCart(key);return n>10||!item||!item.product.availableSizes.includes(item.size)});checkout.setAttribute('aria-disabled',String(items.length===0||unavailable));checkout.onclick=e=>{if(!items.length||unavailable){e.preventDefault();toast('Remove unavailable caps or sizes before checking out.')}};const notice=$('bag-availability-notice');if(notice){notice.hidden=!unavailable;notice.textContent=unavailable?'Some bag items are unavailable or exceed the 10-per-size limit. Remove or reduce them to continue.':'';}}
+ const total=Object.entries(cart).reduce((sum,[key,q])=>sum+(productForCart(key)?.product.price||0)*q,0);$('summary-subtotal').textContent=money(total);$('summary-total').textContent=money(total);const checkout=$('checkout-link');if(checkout){const unavailable=items.some(([key,n])=>{const item=productForCart(key);return n>availableForBag(item?.product,item?.size)||!item||!item.product.availableSizes.includes(item.size)});checkout.setAttribute('aria-disabled',String(items.length===0||unavailable));checkout.onclick=e=>{if(!items.length||unavailable){e.preventDefault();toast('Remove unavailable caps or sizes before checking out.')}};const notice=$('bag-availability-notice');if(notice){notice.hidden=!unavailable;notice.textContent=unavailable?'Some bag items exceed available stock or are unavailable. Remove or reduce them to continue.':'';}}
  renderSavedForLater();}
 function renderCheckout(){const node=$('checkout-items');if(!node)return;node.replaceChildren();let total=0;for(const [key,qty] of Object.entries(cart)){const sel=productForCart(key);if(!sel)continue;total+=sel.product.price*qty;const line=document.createElement('div');line.className='checkout-line';const text=document.createElement('span');text.textContent=`${sel.product.name} × ${qty}`;const small=document.createElement('small');small.textContent=`Size ${sel.size}`;text.append(small);const price=document.createElement('strong');price.textContent=money(sel.product.price*qty);line.append(text,price);node.append(line)}if(!node.childElementCount){const empty=document.createElement('p');empty.textContent='No caps selected yet.';node.append(empty)}$('checkout-subtotal').textContent=money(total)}
 function renderOrderItem(item){
@@ -292,6 +332,26 @@ function renderOrderItem(item){
  li.append(title,price);return li;
 }
 // Customer draft/hold management. Only API-calculated prices and states are authoritative.
+function renderAccountWishlist(){
+ const list=$('account-wishlist'),feedback=$('account-wishlist-feedback');
+ if(!list||!feedback)return;
+ list.replaceChildren();feedback.textContent=accountSavedItems.length?`${accountSavedItems.length} saved cap style(s) · no stock reserved`:'No saved caps yet. Use Save for later in your shopping bag.';
+ for(const item of accountSavedItems){
+   const el=document.createElement('article');el.className='saved-local-card';
+   const key=`${item.product_id}:${item.size}`;const sel=productForCart(key);
+   if(sel)el.append(makeImage(sel.product.image,sel.product.name));
+   const body=document.createElement('div');body.className='saved-local-card__content';
+   const name=document.createElement('h3');name.textContent=item.product_name;
+   const p=document.createElement('p');p.textContent=`Size ${item.size} · Qty ${item.quantity} · ${money(item.unit_price_ngn*item.quantity)}`;
+   const status=document.createElement('p');status.textContent=item.available_quantity>0?'Available to move into bag':'Currently out of stock';
+   const actions=document.createElement('div');actions.className='saved-local-actions';
+   const move=document.createElement('button');move.className='button button--dark';move.textContent='Move to bag';move.type='button';
+   move.disabled=item.available_quantity<1;move.addEventListener('click',()=>moveSavedItemToBag(key));
+   const remove=document.createElement('button');remove.type='button';remove.className='remove-line';remove.textContent='Remove';
+   remove.addEventListener('click',async()=>{try{await updateAccountSavedItem(key,0);renderAccountWishlist()}catch(err){toast(err.message)}});
+   actions.append(move,remove);body.append(name,p,status,actions);el.append(body);list.append(el);
+ }
+}
 async function initOrders(){
  const list=$('orders-list'),feedback=$('orders-feedback'),more=$('load-more-orders');
  if(!list||!feedback||!more)return;
@@ -387,10 +447,10 @@ async function init(){
   if(page==='home')renderGrid('home-products',PRODUCTS);
   if(page==='collection')initCollection();
   if(page==='details')initDetails();
-  if(page==='cart')renderBag();
+  if(page==='cart'){if(token()){try{await syncSavedItems()}catch(err){console.warn('Account wishlist unavailable:',err.message)}}renderBag();}
   if(page==='checkout'){renderCheckout();initCheckoutOptions();}
   if(page==='contact')initContact();
-  if(page==='orders')await initOrders();
+  if(page==='orders'){try{await loadProducts();await syncSavedItems();renderAccountWishlist()}catch(err){const el=$('account-wishlist-feedback');if(el)el.textContent='Saved caps unavailable: '+err.message;}await initOrders();}
   if(page==='profile')await initProfile();
   if(page==='login'||page==='register')initAuth();
 }
