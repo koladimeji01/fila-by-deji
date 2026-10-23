@@ -142,7 +142,7 @@ async function apiRequest(path,{method='GET',body,authorize=false}={}){
   let reportRows=[];
   const csvSafe=value=>{
     let str=String(value??'');
-    if(/^[\\s]*[=+@-]/.test(str))str="'"+str;
+    if(/^\s*[=+@-]/.test(str))str="'"+str;
     return '"'+str.replace(/"/g,'""')+'"';
   };
   async function loadReports(){
@@ -193,7 +193,7 @@ async function apiRequest(path,{method='GET',body,authorize=false}={}){
         order.status,order.delivery_destination,order.total_ngn,order.shipping_quote_ngn];
       lines.push(values.map(csvSafe).join(','));
     }
-    const blob=new Blob(['\\uFEFF'+lines.join('\\r\\n')],{type:'text/csv;charset=utf-8'});
+    const blob=new Blob(['\uFEFF'+lines.join('\r\n')],{type:'text/csv;charset=utf-8'});
     const url=URL.createObjectURL(blob);
     const a=node('a');a.href=url;a.download='fila-operations-'+new Date().toISOString().slice(0,10)+'.csv';
     document.body.append(a);a.click();a.remove();
