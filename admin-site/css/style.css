@@ -433,3 +433,23 @@ img.image-unavailable{opacity:0!important}.product-card__media:has(img.image-una
   .admin-inventory-tools,.admin-inventory-tools label{width:100%}
   .admin-inventory-tools button,.admin-inventory-tools select{width:100%}
 }
+
+
+/* Stage 10 — private, per-staff business notification inbox. */
+.admin-notification-badge{display:inline-flex;align-items:center;justify-content:center;vertical-align:middle;min-width:21px;height:21px;padding:0 5px;margin-left:4px;border-radius:99px;background:var(--gold);color:#181818;font-size:11px;font-weight:800}
+.admin-notification-badge[hidden]{display:none!important}
+.admin-notifications-actions{display:flex;align-items:center;flex-wrap:wrap;gap:10px}
+.admin-notifications-list{display:grid;gap:11px;max-height:510px;overflow-y:auto;overscroll-behavior:contain;padding-right:3px;margin:15px 0}
+.admin-notification-card{display:flex;align-items:center;justify-content:space-between;gap:15px;border-radius:12px;border:1px solid #dbca98;border-left:4px solid #c99d2c;background:#fffefa;padding:17px 19px}
+.admin-notification-card--read{background:#fff;border-color:var(--border);border-left-color:#dbd9d1;opacity:.8}
+.admin-notification-copy{min-width:0;flex:1;display:grid;gap:8px}
+.admin-notification-heading{display:flex;align-items:center;gap:8px 13px;flex-wrap:wrap}
+.admin-notification-heading strong{font-size:14px}
+.admin-notification-type{font-size:11px;color:#62552c;background:#fff4d2;padding:4px 9px;border-radius:40px;font-weight:700}
+.admin-notification-copy p{font-size:13px;line-height:1.6;margin:0;overflow-wrap:anywhere}
+.admin-notification-copy small{font-size:11px}
+.admin-notification-actions{display:flex;gap:9px;flex-wrap:wrap;align-items:center}
+.admin-notification-actions .button{min-height:38px;padding:8px 14px;font-size:12px;white-space:nowrap}
+.admin-notification-read-label{font-size:12px;color:#777;font-weight:700;padding:7px}
+.admin-notifications-actions :focus-visible,.admin-notification-actions :focus-visible{outline:3px solid var(--gold);outline-offset:2px}
+@media(max-width:680px){.admin-notification-card{align-items:stretch;flex-direction:column;padding:13px}.admin-notification-actions .button{flex:1}.admin-notifications-actions,.admin-notifications-actions .button{width:100%}}
