@@ -159,4 +159,4 @@ def test_photo_editor_wiring_and_original_default_paths():
     assert "'/photo-url'" in js and "'/photo'" in js
     assert "new FormData()" in js and "data.append('photo',chosen,chosen.name)" in js
     assert 'product.image_url===local' in storefront
-    assert 'img-src \\'self\\' data: blob: https:' in vercel
+    assert "img-src 'self' data: blob: https:" in vercel
