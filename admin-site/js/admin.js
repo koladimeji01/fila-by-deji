@@ -440,9 +440,70 @@ async function uploadProductWithPhoto(details, file){
     }catch(error){feedback('Report export failed: '+error.message,'error');}
     finally{button.disabled=Boolean(reportData?.truncated);}
   }
+  async function saveStaffProfile(event){
+    event.preventDefault();
+    const form=$a('admin-profile-form');
+    if(!form.reportValidity())return;
+    const target=$a('admin-profile-feedback');
+    const button=$a('admin-profile-save');
+    const name=$a('admin-profile-name').value.trim().replace(/\s+/g,' ');
+    if(name.length<2||name.length>100){
+      target.textContent='Enter a display name between 2 and 100 characters.';return;
+    }
+    button.disabled=true;
+    target.textContent='Saving your profile…';
+    try{
+      const user=await apiRequest('/admin/account/profile',{
+        method:'PUT',authorize:true,body:{name}
+      });
+      $a('admin-staff-name').textContent=user.name;
+      $a('admin-profile-name').value=user.name;
+      target.textContent='Profile saved successfully.';
+      feedback('Your staff display name has been updated.','success');
+    }catch(error){
+      target.textContent='Could not save profile: '+error.message;
+      feedback('Profile was not saved: '+error.message,'error');
+    }finally{button.disabled=false;}
+  }
+  async function changeStaffPassword(event){
+    event.preventDefault();
+    const form=$a('admin-password-form');
+    if(!form.reportValidity())return;
+    const target=$a('admin-password-feedback');
+    const button=$a('admin-password-save');
+    const current_password=$a('admin-current-password').value;
+    const new_password=$a('admin-new-password').value;
+    const confirmation=$a('admin-confirm-password').value;
+    if(new_password.length<12||new_password.length>128){
+      target.textContent='New password must be 12 to 128 characters.';return;
+    }
+    if(new_password!==confirmation){
+      target.textContent='The new passwords do not match.';return;
+    }
+    if(current_password===new_password){
+      target.textContent='Choose a new password different from the current one.';return;
+    }
+    button.disabled=true;
+    target.textContent='Updating your password…';
+    try{
+      const result=await apiRequest('/admin/account/password',{
+        method:'POST',authorize:true,body:{current_password,new_password}
+      });
+      if(!result?.access_token)throw new Error('New session was not confirmed');
+      // Fresh token is issued after the backend revokes all older JWT sessions.
+      storeToken(result.access_token);
+      form.reset();
+      target.textContent='Password changed. Your previous sessions are no longer authorized.';
+      feedback('Your password has been changed securely.','success');
+    }catch(error){
+      target.textContent='Password was not changed: '+error.message;
+      feedback('Password update failed: '+error.message,'error');
+    }finally{button.disabled=false;}
+  }
   async function loadStaff(){
     const staff=await apiRequest('/auth/me',{authorize:true});
     $a('admin-staff-name').textContent=staff.name||'—';
+    $a('admin-profile-name').value=staff.name||'';
     $a('admin-staff-email').textContent=staff.email||'—';
   }
   async function refreshOverview(){
@@ -891,6 +952,8 @@ async function uploadProductWithPhoto(details, file){
     $a('admin-show-signup').addEventListener('click',()=>showAuthPanel('signup'));
     $a('admin-show-login').addEventListener('click',()=>showAuthPanel('login'));
     $a('admin-signup-form').addEventListener('submit',submitSignup);
+    $a('admin-profile-form').addEventListener('submit',saveStaffProfile);
+    $a('admin-password-form').addEventListener('submit',changeStaffPassword);
     $a('admin-request-existing').addEventListener('click',requestExistingStaffAccess);
     $a('admin-staff-refresh').addEventListener('click',loadStaffManagement);
     $a('admin-refresh').addEventListener('click',loadDashboard);
@@ -945,6 +1008,10 @@ async function uploadProductWithPhoto(details, file){
       $a('admin-content').hidden=true;
       $a('admin-login').hidden=false;
       $a('admin-login-form').reset();
+      $a('admin-profile-form').reset();
+      $a('admin-password-form').reset();
+      $a('admin-profile-feedback').textContent='';
+      $a('admin-password-feedback').textContent='';
       reportData=null;
       $a('admin-report-stats').replaceChildren();
       $a('admin-report-by-product').replaceChildren();
