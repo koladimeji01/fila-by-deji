@@ -179,11 +179,28 @@
    <button type="button" id="admin-more-orders" class="button button--dark" hidden>Load more</button>
   </section>
   <section class="admin-section" aria-labelledby="admin-reports-title">
-   <div class="admin-section__heading"><div><h2 id="admin-reports-title">Operational reports</h2><p>Review the latest 100 recorded selections and enquiries. These are not confirmed sales.</p></div>
-    <button class="button button--dark" type="button" id="admin-export-report">Export CSV</button>
+   <div class="admin-section__heading"><div><h2 id="admin-reports-title">Operational reports & insights</h2><p>Explore recorded customer enquiries and cap demand. All metrics describe unpaid activity, not sales revenue.</p></div></div>
+   <div class="admin-report-tools">
+     <label for="admin-report-period">Report period
+       <select id="admin-report-period">
+         <option value="7">Last 7 days</option>
+         <option value="30" selected>Last 30 days</option>
+         <option value="90">Last 90 days</option>
+       </select>
+     </label>
+     <button class="button button--dark" type="button" id="admin-report-refresh">Refresh report</button>
+     <button class="button button--gold" type="button" id="admin-export-report">Download CSV</button>
    </div>
-   <p id="admin-report-note" class="admin-muted">Reports become available after staff verification.</p>
+   <p id="admin-report-note" class="admin-muted" role="status" aria-live="polite">Reports become available after staff verification.</p>
    <div id="admin-report-stats" class="admin-stats" aria-live="polite"></div>
+   <div class="admin-report-chart-card">
+      <div class="admin-report-heading">
+        <div><h3>Enquiry activity</h3><p class="admin-muted">Recorded enquiries per calendar day (Lagos time)</p></div>
+        <div id="admin-report-chart-total" class="admin-report-chart-total"></div>
+      </div>
+      <div id="admin-report-chart" class="admin-report-chart" role="img" aria-label="Enquiry activity chart will appear after loading"></div>
+      <div id="admin-report-chart-axis" class="admin-report-chart-axis"></div>
+   </div>
    <div id="admin-report-by-product" class="admin-report-list"></div>
   </section>
   <section class="admin-section" id="admin-staff-section" aria-labelledby="admin-staff-title" hidden>
