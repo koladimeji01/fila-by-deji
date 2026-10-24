@@ -789,11 +789,95 @@ async function uploadProductWithPhoto(details, file){
       button.disabled=false;
     }
   }
+  function renderNotifications(data){
+    if(!data||!Array.isArray(data.notifications)||!Number.isInteger(data.unread_count))
+      throw new Error('Unexpected notifications response.');
+    const badge=$a('admin-notifications-badge');
+    const list=$a('admin-notifications-list');
+    const readAll=$a('admin-notifications-read-all');
+    const unread=Math.max(0,data.unread_count);
+    badge.textContent=String(unread);
+    badge.hidden=unread===0;
+    readAll.disabled=unread===0;
+    $a('admin-notifications-info').textContent=
+      unread+' new or unreviewed alert'+(unread===1?'':'s')+' · '+data.notifications.length+
+      ' active notifications. Read status is saved to your staff account.';
+    list.replaceChildren();
+    if(!data.notifications.length){
+      list.append(node('p','admin-muted','No active notifications. Check again when new business activity arrives.'));
+      return;
+    }
+    const targets={
+      enquiry:{href:'#admin-orders-title',label:'View enquiries'},
+      stock:{href:'#admin-inventory-title',label:'View inventory'},
+      staff:{href:'#admin-staff-title',label:'Review staff requests'},
+    };
+    const typeNames={enquiry:'Customer enquiry',stock:'Stock alert',staff:'Staff application'};
+    for(const item of data.notifications){
+      if(!targets[item.kind])continue;
+      const card=node('article','admin-notification-card'+(item.is_read?' admin-notification-card--read':''));
+      const content=node('div','admin-notification-copy');
+      const heading=node('div','admin-notification-heading');
+      heading.append(node('strong','',item.title));
+      heading.append(node('span','admin-notification-type',typeNames[item.kind]));
+      content.append(heading,node('p','',item.detail));
+      if(item.created_at){
+        const timestamp=new Date(item.created_at);
+        if(!Number.isNaN(timestamp.getTime())){
+          content.append(node('small','admin-muted',timestamp.toLocaleString('en-NG',{dateStyle:'medium',timeStyle:'short'})));
+        }
+      }
+      const actions=node('div','admin-notification-actions');
+      const view=node('a','button button--outline admin-small-button',targets[item.kind].label);
+      view.href=targets[item.kind].href;
+      actions.append(view);
+      if(!item.is_read){
+        const read=node('button','button button--dark admin-small-button','Mark as read');
+        read.type='button';
+        read.addEventListener('click',async()=>{
+          read.disabled=true;
+          try{
+            const result=await apiRequest('/admin/notifications/read',{
+              method:'POST',authorize:true,body:{key:item.key}
+            });
+            renderNotifications(result);
+          }catch(error){
+            feedback('Could not mark alert as read: '+error.message,'error');
+            read.disabled=false;
+          }
+        });
+        actions.append(read);
+      }else{
+        actions.append(node('span','admin-notification-read-label','Read'));
+      }
+      card.append(content,actions);
+      list.append(card);
+    }
+  }
+  async function loadNotifications(){
+    $a('admin-notifications-info').textContent='Checking recent business activity…';
+    const result=await apiRequest('/admin/notifications',{authorize:true});
+    renderNotifications(result);
+  }
+  async function markAllNotificationsRead(){
+    const button=$a('admin-notifications-read-all');
+    button.disabled=true;
+    try{
+      const result=await apiRequest('/admin/notifications/read-all',{
+        method:'POST',authorize:true
+      });
+      renderNotifications(result);
+      feedback('All current notifications marked as read.','success');
+    }catch(error){
+      feedback('Could not update notifications: '+error.message,'error');
+      button.disabled=false;
+    }
+  }
   async function loadDashboard(){
     const allowed=await verified();if(!allowed)return;
     feedback('Loading inventory and enquiries…');
     offset=0;loadedOrders=[];$a('admin-order-list').replaceChildren();
-    const results=await Promise.allSettled([loadProducts(),loadInventory(),loadStockMonitoring(),loadOrders(),loadReports(),loadStaff(),loadStaffManagement()]);
+    const results=await Promise.allSettled([loadNotifications(),loadProducts(),loadInventory(),loadStockMonitoring(),loadOrders(),loadReports(),loadStaff(),loadStaffManagement()]);
     const failures=results.filter(result=>result.status==='rejected');
     if(failures.length){
       feedback('Some sections could not load. Please refresh. '+failures.map(x=>x.reason?.message||'Service error').join('; '),'error');
@@ -810,6 +894,11 @@ async function uploadProductWithPhoto(details, file){
     $a('admin-request-existing').addEventListener('click',requestExistingStaffAccess);
     $a('admin-staff-refresh').addEventListener('click',loadStaffManagement);
     $a('admin-refresh').addEventListener('click',loadDashboard);
+    $a('admin-notifications-refresh').addEventListener('click',()=>loadNotifications().catch(error=>{
+      $a('admin-notifications-info').textContent='Unable to load notifications: '+error.message;
+      feedback('Unable to load notifications: '+error.message,'error');
+    }));
+    $a('admin-notifications-read-all').addEventListener('click',markAllNotificationsRead);
     $a('admin-more-orders').addEventListener('click',loadOrders);
     $a('admin-stock-threshold').addEventListener('change',()=>loadStockMonitoring().catch(error=>{
       $a('admin-inventory-alerts-note').textContent='Unable to refresh stock alerts: '+error.message;
@@ -849,6 +938,10 @@ async function uploadProductWithPhoto(details, file){
     });
     const signOut=()=>{
       storeToken('');
+      $a('admin-notifications-list').replaceChildren();
+      $a('admin-notifications-info').textContent='Sign in to view notifications.';
+      $a('admin-notifications-badge').hidden=true;
+      $a('admin-notifications-read-all').disabled=true;
       $a('admin-content').hidden=true;
       $a('admin-login').hidden=false;
       $a('admin-login-form').reset();
