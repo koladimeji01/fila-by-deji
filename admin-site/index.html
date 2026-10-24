@@ -70,6 +70,7 @@
  <div id="admin-content" hidden>
   <nav class="admin-dashboard-nav" aria-label="Dashboard sections">
    <a href="#admin-overview-title">Overview</a>
+   <a href="#admin-notifications-title" id="admin-notifications-nav">Notifications <span id="admin-notifications-badge" class="admin-notification-badge" hidden>0</span></a>
    <a href="#admin-products-title">Products</a>
    <a href="#admin-inventory-title">Inventory</a>
    <a href="#admin-orders-title">Enquiries</a>
@@ -97,6 +98,19 @@
    </div>
    <p class="admin-muted">These counts are operational activity only. They do not represent paid orders or revenue.</p>
    <button type="button" class="button button--outline admin-small-button" id="admin-release-expired">Release expired stock holds</button>
+  </section>
+  <section class="admin-section" id="admin-notifications-section" aria-labelledby="admin-notifications-title">
+    <div class="admin-section__heading">
+      <div><h2 id="admin-notifications-title">Business notifications</h2>
+        <p>Important updates for your team, from the live business records.</p></div>
+      <div class="admin-notifications-actions">
+        <button type="button" id="admin-notifications-refresh" class="button button--outline admin-small-button">Refresh alerts</button>
+        <button type="button" id="admin-notifications-read-all" class="button button--dark admin-small-button" disabled>Mark all as read</button>
+      </div>
+    </div>
+    <p id="admin-notifications-info" class="admin-muted" role="status" aria-live="polite">Notifications load after staff sign-in.</p>
+    <div id="admin-notifications-list" class="admin-notifications-list" aria-live="polite"></div>
+    <p class="admin-muted">This is an in-dashboard inbox. It does not send SMS, email or phone push alerts. Notifications are checked when you refresh the dashboard.</p>
   </section>
   <section class="admin-section" aria-labelledby="admin-products-title">
    <div class="admin-section__heading">
