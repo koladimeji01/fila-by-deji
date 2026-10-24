@@ -13,12 +13,13 @@ from sqlalchemy.orm import Session
 from .config import get_settings
 from .rate_limit import limit_request
 from .database import get_db
-from .models import Order, OrderItem, Product, ProductInventory, ProductPhoto, User, SavedItem, DeliveryQuoteAudit, StaffApplication, StaffAccessAudit, utcnow
+from .models import Order, OrderItem, Product, ProductInventory, ProductPhoto, User, SavedItem, DeliveryQuoteAudit, StaffApplication, StaffAccessAudit, EnquiryFollowup, utcnow
 from .schemas import (AdminOrderResponse, CreateDraftOrderRequest, LoginRequest, OrderItemResponse, OrderResponse,
                       ProductResponse, RegisterRequest, StockLevelResponse, StockUpdateRequest, TokenResponse, UserResponse,
                       SaveItemRequest, SavedItemResponse, DeliveryQuoteRequest, AdminOverviewResponse,
                       AdminProductResponse, AdminProductUpdateRequest, AdminProductCreateRequest,
-                      StaffStatusResponse, StaffAccountResponse, StaffDecisionRequest)
+                      StaffStatusResponse, StaffAccountResponse, StaffDecisionRequest,
+                      EnquiryFollowupRequest)
 from .security import create_token, get_current_admin, get_current_user, get_current_staff_manager, hash_password, verify_password
 from .reservations import aware, cancel_order, expire_holds, reserve_order
 
@@ -611,14 +612,51 @@ def admin_set_available(product_id: str, size: str, body: StockUpdateRequest,
     return StockLevelResponse(product_id=product_id, size=size, available_quantity=body.available_quantity)
 
 
+def admin_order_out(order: Order, followup: EnquiryFollowup | None = None) -> AdminOrderResponse:
+    """Never mix staff-only metadata into the customer-facing OrderResponse."""
+    result = dict(order_out(order).model_dump(), user_id=order.user_id,
+                  customer_name=order.user.name, customer_email=order.user.email)
+    if followup:
+        result.update(followup_stage=followup.stage, internal_note=followup.internal_note,
+                      followup_updated_at=aware(followup.updated_at))
+    return AdminOrderResponse(**result)
+
+
 @app.get('/api/v1/admin/orders', response_model=list[AdminOrderResponse])
 def admin_orders(limit: int = Query(20, ge=1, le=100), offset: int = Query(0, ge=0),
                  db: Session = Depends(get_db), admin: User = Depends(get_current_admin)):
     expire_holds(db)
     rows = db.scalars(select(Order).order_by(Order.created_at.desc(), Order.id.desc())
                       .offset(offset).limit(limit)).all()
-    return [AdminOrderResponse(**order_out(o).model_dump(), user_id=o.user_id,
-                               customer_name=o.user.name, customer_email=o.user.email) for o in rows]
+    if not rows:
+        return []
+    followups = {f.order_id: f for f in db.scalars(select(EnquiryFollowup)
+                .where(EnquiryFollowup.order_id.in_([order.id for order in rows]))).all()}
+    return [admin_order_out(order, followups.get(order.id)) for order in rows]
+
+
+@app.put('/api/v1/admin/orders/{order_id}/followup', response_model=AdminOrderResponse)
+def admin_save_followup(order_id: str, body: EnquiryFollowupRequest,
+                        db: Session = Depends(get_db), admin: User = Depends(get_current_admin)):
+    """Only staff manage private workflow. Never update financial/order statuses."""
+    order = db.scalar(select(Order).where(Order.id == order_id).with_for_update())
+    if order is None:
+        raise HTTPException(404, 'Enquiry not found')
+    current = db.get(EnquiryFollowup, order_id, with_for_update=True)
+    if current is None:
+        current = EnquiryFollowup(order_id=order_id, stage=body.stage,
+                                  internal_note=body.internal_note, updated_by=admin.id)
+        db.add(current)
+    elif current.stage != body.stage or current.internal_note != body.internal_note:
+        current.stage = body.stage
+        current.internal_note = body.internal_note
+        current.updated_by = admin.id
+        current.updated_at = utcnow()
+    else:
+        return admin_order_out(order, current)
+    db.commit()
+    db.refresh(current)
+    return admin_order_out(order, current)
 
 
 @app.put('/api/v1/admin/orders/{order_id}/delivery-quote', response_model=AdminOrderResponse)
