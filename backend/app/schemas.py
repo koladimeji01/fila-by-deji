@@ -41,6 +41,26 @@ class TokenResponse(BaseModel):
     token_type: str = 'bearer'
 
 
+class BusinessNotification(BaseModel):
+    key: str
+    kind: Literal['enquiry', 'stock', 'staff']
+    title: str
+    detail: str
+    destination: Literal['enquiries', 'inventory', 'staff']
+    created_at: datetime | None = None
+    is_read: bool = False
+
+
+class BusinessNotificationList(BaseModel):
+    unread_count: int
+    notifications: list[BusinessNotification]
+
+
+class NotificationReadRequest(BaseModel):
+    model_config = ConfigDict(extra='forbid')
+    key: str = Field(min_length=4, max_length=140)
+
+
 class StaffStatusResponse(BaseModel):
     status: str
     message: str
