@@ -25,7 +25,7 @@ from .schemas import (AdminOrderResponse, CreateDraftOrderRequest, LoginRequest,
                       StaffStatusResponse, StaffAccountResponse, StaffDecisionRequest,
                       EnquiryFollowupRequest, InventoryAlertsResponse, LowStockAlertResponse,
                       InventoryChangeResponse, BusinessNotification, BusinessNotificationList,
-                      NotificationReadRequest)
+                      NotificationReadRequest, StaffDisplayNameRequest, StaffPasswordChangeRequest)
 from .security import create_token, get_current_admin, get_current_user, get_current_staff_manager, hash_password, verify_password
 from .reservations import aware, cancel_order, expire_holds, reserve_order
 
@@ -167,12 +167,40 @@ def login(body: LoginRequest, db: Session = Depends(get_db)):
     user = db.scalar(select(User).where(User.email == str(body.email).lower()))
     if not verify_password(body.password, user.password_hash if user else None) or not user or not user.is_active:
         raise HTTPException(401, 'Invalid email or password')
-    return TokenResponse(access_token=create_token(user.id))
+    return TokenResponse(access_token=create_token(user.id, user.auth_version))
 
 
 @app.get('/api/v1/auth/me', response_model=UserResponse)
 def me(user: User = Depends(get_current_user)):
     return user
+
+
+@app.put('/api/v1/admin/account/profile', response_model=UserResponse)
+def admin_update_own_profile(body: StaffDisplayNameRequest,
+                             db: Session = Depends(get_db),
+                             admin: User = Depends(get_current_admin)):
+    """Only self-edit display name; never email, staff roles or permissions."""
+    user = db.get(User, admin.id, with_for_update=True)
+    user.name = body.name
+    db.commit()
+    db.refresh(user)
+    return user
+
+
+@app.post('/api/v1/admin/account/password', response_model=TokenResponse)
+def admin_change_own_password(body: StaffPasswordChangeRequest,
+                              db: Session = Depends(get_db),
+                              admin: User = Depends(get_current_admin)):
+    """Verify the old password, rotate hash, invalidate all prior JWT versions."""
+    user = db.get(User, admin.id, with_for_update=True)
+    if not verify_password(body.current_password, user.password_hash):
+        raise HTTPException(401, 'Current password is incorrect')
+    if verify_password(body.new_password, user.password_hash):
+        raise HTTPException(422, 'Choose a different password from your current one')
+    user.password_hash = hash_password(body.new_password)
+    user.auth_version += 1
+    db.commit()
+    return TokenResponse(access_token=create_token(user.id, user.auth_version))
 
 
 @app.get('/api/v1/products', response_model=list[ProductResponse])
