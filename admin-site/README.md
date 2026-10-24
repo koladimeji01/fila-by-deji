@@ -24,6 +24,8 @@ Both admin URLs are now verified and assigned to the standalone administration p
 - **Add a new product** through the Product Catalogue panel. Enter product name, category, description, price, a public HTTPS image URL, available quantities for sizes 32/35/39/41, and choose whether to publish. The backend generates a unique ID, creates all four inventory rows atomically and requires administrator authorization.
 - Edit **existing** catalog names, categories, descriptions, prices and visibility
 - View and set exact available stock by size
+- **Stage 9 inventory monitoring:** choose a 2, 3, 5, or 10 unit threshold and review alerts for low-stock and sold-out sizes of **published** caps. The alert count uses live **available** stock after temporary holds. It is shown on dashboard refresh and is not an automatic push/email notification.
+- **Staff adjustment history:** manual stock changes are audited with old/new available quantities, size, staff identity and a required reason category (Restock, Stock Count Correction, Damaged / Unavailable, Other). Recent 30 entries appear on the dashboard. Identical writes do not create duplicate audits. Customer holds, cancellations and expirations do not count as staff edits.
 - Review unpaid customer enquiries and temporary holds
 - Track enquiries through **New**, **Contacted**, **Awaiting Reply**, and **Closed Follow-up** stages with an internal note, last-updated timestamp, and search/filter tools. Filters apply only to currently loaded enquiries.
 - The follow-up metadata lives in a private `enquiry_followups` table. Customer orders, paid state, inventory, and shipping quotes are never changed by these notes. No customer-facing messaging is sent.
