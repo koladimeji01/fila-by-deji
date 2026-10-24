@@ -21,6 +21,8 @@ Both admin URLs are now verified and assigned to the standalone administration p
 - Staff approvals require a distinct database-backed `can_manage_staff` permission, preserved for the pre-existing administrators during migration. Newly approved staff get `is_admin=true` but `can_manage_staff=false`.
 - Administrator-only sign-in; the backend checks `users.is_admin` on each business endpoint
 - Operations overview; totals are not sales revenue
+- **Stage 10 notifications centre:** a staff-only inbox highlights new untouched enquiries from the past 14 days, active low/out-of-stock cap sizes (3 or fewer available units), and pending staff requests (visible only to managers). The unread badge and cards refresh on dashboard load or **Refresh alerts**. Staff can mark individual alerts or all current alerts as read; this preference is saved per staff account in a private table. Notifications resolve when enquiries are followed up, stock recovers, or staff applications are reviewed. There are **no email, SMS, or push notifications** in this stage. For performance, feeds include up to 25 staff applications, 25 enquiries, and 40 low-stock size variants; they are not a comprehensive audit feed.
+
 - **Add a new product** through the Product Catalogue panel. Enter product name, category, description, price, a public HTTPS image URL, available quantities for sizes 32/35/39/41, and choose whether to publish. The backend generates a unique ID, creates all four inventory rows atomically and requires administrator authorization.
 - Edit **existing** catalog names, categories, descriptions, prices and visibility
 - View and set exact available stock by size
