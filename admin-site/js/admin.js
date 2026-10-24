@@ -346,7 +346,7 @@ async function uploadProductWithPhoto(details, file){
       try{
         const target=new URL(candidate);
         if(target.protocol!=='https:'||target.username||target.password||
-           !/\\.(jpg|jpeg|png|webp)$/i.test(target.pathname))throw new Error();
+           !/\.(jpg|jpeg|png|webp)$/i.test(target.pathname))throw new Error();
         preview.src=target.href;
         preview.hidden=false;
         status.textContent='Preview requested. Check the image before replacing the current photo.';
