@@ -28,7 +28,8 @@ Both admin URLs are now verified and assigned to the standalone administration p
 - Track enquiries through **New**, **Contacted**, **Awaiting Reply**, and **Closed Follow-up** stages with an internal note, last-updated timestamp, and search/filter tools. Filters apply only to currently loaded enquiries.
 - The follow-up metadata lives in a private `enquiry_followups` table. Customer orders, paid state, inventory, and shipping quotes are never changed by these notes. No customer-facing messaging is sent.
 - Save delivery quotes on eligible draft enquiries
-- Report on the latest 100 entries (not full historical totals), plus CSV export
+- **Stage 8 operational analytics:** choose 7, 30, or 90 Lagos-calendar days, view daily enquiry bars, distinct customers, selected cap quantities, delivery quotes and the most requested products. These are **not sales or revenue**.
+- Download an admin-authenticated CSV for that exact date range. CSV values are protected from spreadsheet formula injection; internal staff notes are excluded. Reporting is capped at 5,000 newest entries, and the UI explicitly warns about partial results and disables incomplete exports.
 - View the verified staff identity and end the browser session
 
 The original three catalog photographs remain unchanged and are shipped from GitHub. **New product photos can be uploaded directly from a device** (JPEG, PNG or WebP, maximum 5 MB), or supplied via a public HTTPS image URL. Uploaded photos are validated, resized to at most 1600 px and converted to WebP by the secured FastAPI backend. A single transaction saves the product, its stock sizes and compressed image to the private `product_photos` table in Supabase Postgres. The public image route only serves photos on published products; drafts stay private. Uploaded images use database space, so for a large catalog a dedicated private-upload/public-read object-storage service would be a future scalability upgrade. The existing URL method remains supported. Never upload photos you do not own or have permission to use. The dashboard does **not** accept payments. No database credentials or Supabase service keys are bundled in the browser.
@@ -52,3 +53,8 @@ node --check js/admin.js
 ```
 
 The build emits only the approved admin HTML, JS, CSS and brand assets into `dist/`. The storefront build never includes this admin site. Backend tests run under GitHub Actions. Payment processing and confirmed orders are intentionally outside this phase.
+
+
+## Reporting limits and safeguards
+
+Reports are calculated from actual database orders and order-item snapshots, not from browser state or estimated sales. Daily date boundaries use `Africa/Lagos`; an empty period displays zeros. A busy window exceeding **5,000** enquiries is marked partial and cannot be exported as if complete; select a shorter period. CSV downloads contain customers' names and emails, so restrict access to authorized staff and handle the file securely. No payment status or revenue is inferred from order subtotals or shipping quotations. The existing unpaid customer enquiry workflow is unchanged.
