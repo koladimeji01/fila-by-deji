@@ -22,6 +22,7 @@ RULES = {
     'register': (5, 3600),
     'staff-register': (4, 3600),
     'staff-apply': (5, 3600),
+    'password-change': (5, 3600),
     'draft': (20, 60),
     'reserve': (15, 60),
     'admin-write': (30, 60),
@@ -47,6 +48,8 @@ def match_rule(method: str, path: str) -> str | None:
             return 'staff-register'
         if path == '/api/v1/staff/apply':
             return 'staff-apply'
+        if path == '/api/v1/admin/account/password':
+            return 'password-change'
         if path == '/api/v1/orders/drafts':
             return 'draft'
         if path.startswith('/api/v1/orders/') and path.endswith('/reserve'):
