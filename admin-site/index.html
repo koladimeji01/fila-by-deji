@@ -253,7 +253,33 @@
    <div class="admin-section__heading"><div><h2 id="admin-settings-title">Staff account & security</h2><p>Review the account used to access this restricted workspace.</p></div></div>
    <div class="admin-settings-panel">
     <dl><div><dt>Staff member</dt><dd id="admin-staff-name">—</dd></div><div><dt>Account email</dt><dd id="admin-staff-email">—</dd></div><div><dt>Permissions</dt><dd>Verified administrator</dd></div></dl>
-    <p class="admin-muted">Admin access is assigned only by an authorized database operator. Logging out ends this browser session. Credentials and user roles are never stored in the website source code.</p>
+    <p class="admin-muted">These settings apply to your own account. Your customer login uses the same account name. Only an authorized staff manager can change staff permissions.</p>
+    <div class="admin-account-settings">
+      <form id="admin-profile-form" class="admin-account-form" aria-labelledby="admin-profile-heading">
+        <h3 id="admin-profile-heading">Profile details</h3>
+        <label for="admin-profile-name">Display name
+          <input id="admin-profile-name" type="text" required minlength="2" maxlength="100" autocomplete="name" placeholder="Your full name">
+        </label>
+        <p id="admin-profile-feedback" class="admin-settings-feedback" role="status" aria-live="polite"></p>
+        <button type="submit" class="button button--gold admin-small-button" id="admin-profile-save">Save profile</button>
+      </form>
+      <form id="admin-password-form" class="admin-account-form" aria-labelledby="admin-password-heading">
+        <h3 id="admin-password-heading">Change password</h3>
+        <p class="admin-muted">Changing your password signs out other sessions using the old password. Keep the new password private.</p>
+        <label for="admin-current-password">Current password
+          <input id="admin-current-password" type="password" required autocomplete="current-password" maxlength="128">
+        </label>
+        <label for="admin-new-password">New password
+          <input id="admin-new-password" type="password" required minlength="12" maxlength="128" autocomplete="new-password">
+        </label>
+        <label for="admin-confirm-password">Confirm new password
+          <input id="admin-confirm-password" type="password" required minlength="12" maxlength="128" autocomplete="new-password">
+        </label>
+        <p id="admin-password-feedback" class="admin-settings-feedback" role="status" aria-live="polite"></p>
+        <button type="submit" class="button button--dark admin-small-button" id="admin-password-save">Change password securely</button>
+      </form>
+    </div>
+    <p class="admin-muted">Your email address and permissions cannot be changed here. You can end the current session at any time.</p>
     <button type="button" id="admin-settings-signout" class="button button--outline">Sign out of this session</button>
    </div>
   </section>
