@@ -364,3 +364,20 @@ img.image-unavailable{opacity:0!important}.product-card__media:has(img.image-una
 .admin-staff-card__actions button{min-height:40px}
 .admin-staff-card__actions button:disabled{opacity:.6;cursor:wait}
 @media(max-width:750px){.admin-staff-list{grid-template-columns:1fr}}
+
+
+/* Stage 7: private enquiry follow-up workflow. */
+.admin-enquiry-tools{display:flex;flex-wrap:wrap;align-items:end;gap:12px;margin:2px 0 12px}
+.admin-enquiry-tools label{display:grid;gap:7px;flex:1 1 230px;max-width:420px;font-size:12px;font-weight:700}
+.admin-enquiry-tools input,.admin-enquiry-tools select{width:100%;min-height:42px;border:1px solid #c0b9a9;border-radius:9px;background:#fff;padding:10px 12px;color:#292929;font:inherit;font-size:14px;font-weight:400}
+#admin-enquiry-filter-count{margin:0 0 15px}
+.admin-followup-form{display:grid;gap:10px;margin-top:20px;padding-top:16px;border-top:1px solid var(--border)}
+.admin-followup-form h4{margin:0;font-size:15px}
+.admin-followup-form label{display:grid;gap:7px;font-size:12px;font-weight:700}
+.admin-followup-form select,.admin-followup-form textarea{width:100%;min-width:0;padding:10px 12px;border:1px solid #bdb7a9;border-radius:8px;font:inherit;font-size:13px;font-weight:400;color:#292929;background:#fff}
+.admin-followup-form textarea{resize:vertical;min-height:75px}
+.admin-followup-form p{margin:0}
+.admin-followup-actions{display:flex;align-items:center;flex-wrap:wrap;justify-content:space-between;gap:12px}
+.admin-followup-actions small{font-size:11px}
+.admin-followup-form :focus-visible,.admin-enquiry-tools :focus-visible{outline:3px solid var(--gold);outline-offset:2px}
+@media(max-width:540px){.admin-enquiry-tools label{max-width:none}.admin-followup-actions .button{width:100%}}
