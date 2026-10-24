@@ -120,4 +120,5 @@ def test_admin_add_form_and_storefront_are_wired_together():
         assert 'id="'+field+'"' in page
     assert "apiRequest('/admin/products',{method:'POST',authorize:true" in admin_js
     assert "image:catalogImage(p)" in store_js
-    assert "if(['ceremonial','classic','premium'].includes(product.id))return local;" in store_js
+    assert "['ceremonial','classic','premium'].includes(product.id)" in store_js
+    assert "product.image_url===local" in store_js
