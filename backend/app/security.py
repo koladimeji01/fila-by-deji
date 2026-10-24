@@ -27,12 +27,12 @@ def verify_password(password: str, stored_hash: str | None) -> bool:
         return False
 
 
-def create_token(user_id: str) -> str:
+def create_token(user_id: str, auth_version: int = 0) -> str:
     settings = get_settings()
     now = datetime.now(timezone.utc)
     return jwt.encode(
         {'sub': user_id, 'iat': now, 'exp': now + timedelta(minutes=settings.access_token_minutes),
-         'iss': ISSUER, 'aud': AUDIENCE, 'typ': 'access'},
+         'iss': ISSUER, 'aud': AUDIENCE, 'typ': 'access', 'ver': auth_version},
         settings.jwt_secret_key,
         algorithm='HS256',
     )
@@ -60,6 +60,9 @@ def get_current_user(
     user = db.get(User, payload['sub'])
     if user is None or not user.is_active:
         raise HTTPException(401, 'Invalid or expired token', headers={'WWW-Authenticate': 'Bearer'})
+    version = payload.get('ver', 0)  # Existing pre-migration tokens start at version zero.
+    if type(version) is not int or version != user.auth_version:
+        raise HTTPException(401, 'Session expired after a security change', headers={'WWW-Authenticate': 'Bearer'})
     return user
 
 
