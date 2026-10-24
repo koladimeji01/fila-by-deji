@@ -38,6 +38,7 @@ def check_readiness() -> list[str]:
                 'staff_access_audit': {'id', 'subject_user_id', 'actor_user_id', 'action', 'created_at'},
                 'enquiry_followups': {'order_id', 'stage', 'internal_note', 'updated_by', 'updated_at'},
                 'inventory_change_audit': {'id', 'product_id', 'size', 'previous_quantity', 'new_quantity', 'reason', 'changed_by', 'changed_at'},
+                'staff_notification_reads': {'staff_user_id', 'notification_key', 'read_at'},
                 'saved_items': {'user_id', 'product_id', 'size', 'quantity'},
             }
             tables = set(schema.get_table_names())
