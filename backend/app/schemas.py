@@ -41,6 +41,27 @@ class TokenResponse(BaseModel):
     token_type: str = 'bearer'
 
 
+class StaffDisplayNameRequest(BaseModel):
+    """Self-service display name; cannot update email, role or permissions."""
+    model_config = ConfigDict(extra='forbid')
+    name: str = Field(min_length=2, max_length=100)
+
+    @field_validator('name')
+    @classmethod
+    def normalise_name(cls, value: str) -> str:
+        cleaned = ' '.join(value.split())
+        if len(cleaned) < 2 or len(cleaned) > 100:
+            raise ValueError('Please enter a display name between 2 and 100 characters')
+        return cleaned
+
+
+class StaffPasswordChangeRequest(BaseModel):
+    """Requires the current password even when an admin JWT is valid."""
+    model_config = ConfigDict(extra='forbid')
+    current_password: str = Field(min_length=1, max_length=128)
+    new_password: str = Field(min_length=12, max_length=128)
+
+
 class BusinessNotification(BaseModel):
     key: str
     kind: Literal['enquiry', 'stock', 'staff']
