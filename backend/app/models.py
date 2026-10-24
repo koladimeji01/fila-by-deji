@@ -94,6 +94,27 @@ class Order(Base):
     __table_args__ = (CheckConstraint('total_kobo >= 0', name='ck_order_nonnegative_total'),)
 
 
+
+class EnquiryFollowup(Base):
+    """Private staff-only follow-up metadata, separate from unpaid order state."""
+    __tablename__ = 'enquiry_followups'
+    order_id: Mapped[str] = mapped_column(
+        ForeignKey('orders.id', ondelete='CASCADE'), primary_key=True
+    )
+    stage: Mapped[str] = mapped_column(String(20), nullable=False, default='new')
+    internal_note: Mapped[str] = mapped_column(Text, nullable=False, default='')
+    updated_by: Mapped[str] = mapped_column(
+        ForeignKey('users.id', ondelete='RESTRICT'), nullable=False
+    )
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, default=utcnow
+    )
+    __table_args__ = (CheckConstraint(
+        "stage IN ('new','contacted','awaiting_reply','closed')",
+        name='ck_enquiry_followup_stage'
+    ),)
+
+
 class OrderItem(Base):
     __tablename__ = 'order_items'
     id: Mapped[str] = mapped_column(String(36), primary_key=True, default=lambda: str(uuid4()))
