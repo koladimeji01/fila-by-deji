@@ -19,7 +19,7 @@ def test_alerts_are_admin_only_and_reflect_available_stock_not_sales(client,auth
     assert client.get(alerts,headers=normal).status_code==403
     assert client.get(history).status_code==401
     assert client.get(history,headers=normal).status_code==403
-    staff=authorize(client,auth) if False else normal
+    staff=normal  # The same session is checked against its current database role.
     with SessionLocal() as db:
         db.query(User).filter_by(email='ada@example.com').one().is_admin=True
         db.get(ProductInventory,('premium','39')).quantity=2
