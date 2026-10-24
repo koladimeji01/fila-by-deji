@@ -335,66 +335,110 @@ async function uploadProductWithPhoto(details, file){
     }
     if(!products.length)list.append(node('p','admin-muted','No products are configured.'));
   }
-  let reportRows=[];
-  const csvSafe=value=>{
-    let str=String(value??'');
-    if(/^\s*[=+@-]/.test(str))str="'"+str;
-    return '"'+str.replace(/"/g,'""')+'"';
-  };
-  async function loadReports(){
-    const orders=await apiRequest('/admin/orders?limit=100&offset=0',{authorize:true});
-    if(!Array.isArray(orders))throw new Error('Unexpected report response.');
-    reportRows=orders;
-    const statusCount=new Map();
-    const capCount=new Map();
-    for(const order of orders){
-      const state=order.status||'unknown';
-      statusCount.set(state,(statusCount.get(state)||0)+1);
-      for(const item of order.items||[]){
-        const name=item.product_name||item.product_id||'Cap';
-        capCount.set(name,(capCount.get(name)||0)+Number(item.quantity||0));
-      }
-    }
-    const quoted=orders.filter(o=>o.shipping_quote_ngn!==null&&o.shipping_quote_ngn!==undefined).length;
-    const stats=$a('admin-report-stats');stats.replaceChildren();
+  let reportData=null;
+  function renderReports(report){
+    const stats=$a('admin-report-stats');
+    const list=$a('admin-report-by-product');
+    const chart=$a('admin-report-chart');
+    const axis=$a('admin-report-chart-axis');
+    stats.replaceChildren();list.replaceChildren();chart.replaceChildren();axis.replaceChildren();
     const metrics=[
-      ['Latest recorded entries',orders.length],
-      ['Active unpaid enquiries',statusCount.get('draft')||0],
-      ['Stock holds (not paid)',statusCount.get('reserved')||0],
-      ['Delivery quotes on entries',quoted],
-      ['Cancelled entries',statusCount.get('cancelled')||0],
-      ['Expired entries',statusCount.get('expired')||0],
+      ['Recorded enquiries',report.metrics.enquiries],
+      ['Unique customers',report.metrics.unique_customers],
+      ['Cap units selected · unpaid',report.metrics.selected_units],
+      ['Delivery quotes issued',report.metrics.quoted],
+      ['Active draft enquiries',report.metrics.drafts],
+      ['Temporary stock holds',report.metrics.reserved],
     ];
-    for(const [label,value] of metrics){
+    for(const [caption,value] of metrics){
       const card=node('article','admin-stat');
-      card.append(node('span','',label),node('strong','',value));stats.append(card);
+      card.append(node('span','',caption),node('strong','',value));stats.append(card);
     }
-    const note=$a('admin-report-note');
-    note.textContent='Report covers the latest '+orders.length+
-      ' recorded entries (maximum 100), not lifetime totals. No payments or revenue are recorded.';
-    const list=$a('admin-report-by-product');list.replaceChildren();
-    list.append(node('h3','','Cap quantities in these entries'));
-    if(!capCount.size)list.append(node('p','admin-muted','No cap selections to report yet.'));
-    for(const [name,count] of [...capCount].sort((a,b)=>b[1]-a[1])){
+    const period=report.start_date+' to '+report.end_date+' ('+report.timezone+').';
+    const warning=report.truncated
+      ? ' Large period: showing only the newest '+report.analyzed_entries+' entries. Select a shorter period for complete figures.'
+      : ' Covers all '+report.analyzed_entries+' recorded entries in this period.';
+    $a('admin-report-note').textContent=period+warning+' No confirmed sales or revenue are recorded.';
+    $a('admin-export-report').disabled=Boolean(report.truncated);
+    $a('admin-export-report').title=report.truncated
+      ?'Complete export exceeds the safety limit. Choose a shorter period.'
+      :'Download the complete selected period as a CSV.';
+    $a('admin-report-chart-total').textContent=report.metrics.enquiries+' enquiries';
+    if(!Array.isArray(report.daily)||!report.daily.length){
+      chart.append(node('p','admin-muted','No enquiry activity available.'));
+      return;
+    }
+    const maximum=Math.max(1,...report.daily.map(p=>p.enquiries));
+    const isEmpty=report.daily.every(p=>p.enquiries===0);
+    chart.setAttribute('aria-label',
+      'Enquiries by day from '+report.start_date+' to '+report.end_date+
+      '. Total '+report.metrics.enquiries+'. Highest daily count '+(isEmpty?0:maximum)+'.');
+    chart.classList.toggle('admin-report-chart--empty',isEmpty);
+    for(const p of report.daily){
+      const day=node('div','admin-report-day');
+      const bar=node('div','admin-report-bar');
+      if(p.enquiries===0)bar.classList.add('admin-report-bar--zero');
+      bar.style.height=p.enquiries?Math.max(7,Math.round(100*p.enquiries/maximum))+'%':'2px';
+      bar.setAttribute('title',p.day+': '+p.enquiries+' enquiries');
+      bar.setAttribute('aria-hidden','true');
+      day.append(bar);
+      chart.append(day);
+    }
+    if(isEmpty)chart.append(node('p','admin-report-empty-note','No enquiries recorded in this period.'));
+    for(const index of [0,Math.floor((report.daily.length-1)/2),report.daily.length-1]){
+      const item=report.daily[index];
+      const label=node('span','',new Date(item.day+'T12:00:00').toLocaleDateString('en-NG',{month:'short',day:'numeric'}));
+      axis.append(label);
+    }
+    list.append(node('h3','','Most selected caps (not sales)'));
+    if(!report.products.length)list.append(node('p','admin-muted','No cap selections recorded in this period.'));
+    for(const p of report.products){
       const row=node('div','admin-report-row');
-      row.append(node('span','',name),node('strong','',count+' selected'));list.append(row);
+      row.append(node('span','',p.name),node('strong','',p.selected_units+' units · '+p.enquiries+' selections'));
+      list.append(row);
     }
   }
-  function exportReports(){
-    if(!reportRows.length){feedback('No report entries to export.','notice');return;}
-    const columns=['Created at','Reference','Customer','Email','Status','Destination','Items subtotal NGN','Delivery quote NGN'];
-    const lines=[columns.map(csvSafe).join(',')];
-    for(const order of reportRows){
-      const values=[order.created_at,order.id,order.customer_name,order.customer_email,
-        order.status,order.delivery_destination,order.total_ngn,order.shipping_quote_ngn];
-      lines.push(values.map(csvSafe).join(','));
+  async function loadReports(){
+    const days=Number($a('admin-report-period').value);
+    if(![7,30,90].includes(days))throw new Error('Choose a valid reporting period.');
+    $a('admin-report-note').textContent='Loading '+days+'-day operational report…';
+    const report=await apiRequest('/admin/reports?days='+days,{authorize:true});
+    if(!report||report.days!==days||!report.metrics||!Array.isArray(report.products))
+      throw new Error('Unexpected analytics response.');
+    reportData=report;
+    renderReports(report);
+  }
+  async function exportReports(){
+    if(!reportData){feedback('Load the report before exporting.','notice');return;}
+    if(reportData.truncated){
+      feedback('Select a shorter period for a complete CSV export.','notice');return;
     }
-    const blob=new Blob(['\uFEFF'+lines.join('\r\n')],{type:'text/csv;charset=utf-8'});
-    const url=URL.createObjectURL(blob);
-    const a=node('a');a.href=url;a.download='fila-operations-'+new Date().toISOString().slice(0,10)+'.csv';
-    document.body.append(a);a.click();a.remove();
-    setTimeout(()=>URL.revokeObjectURL(url),1000);
-    feedback('Exported the latest '+reportRows.length+' entries. Keep customer information confidential.','success');
+    const days=Number($a('admin-report-period').value);
+    if(days!==reportData.days){feedback('Refresh the report for the selected period.','notice');return;}
+    const button=$a('admin-export-report');
+    button.disabled=true;
+    try{
+      const access=token();
+      if(!access)throw new Error('Staff sign-in required');
+      const response=await fetch(API_BASE+'/admin/reports/export?days='+days,{
+        headers:{Authorization:'Bearer '+access,Accept:'text/csv'},
+        credentials:'omit',cache:'no-store'
+      });
+      if(!response.ok){
+        const error=await response.json().catch(()=>({}));
+        if(response.status===401)storeToken('');
+        throw new Error(typeof error.detail==='string'?error.detail:'Unable to export report ('+response.status+')');
+      }
+      const blob=await response.blob();
+      const fileURL=URL.createObjectURL(blob);
+      const a=node('a');
+      a.href=fileURL;
+      a.download='fila-enquiries-'+reportData.start_date+'-'+reportData.end_date+'.csv';
+      document.body.append(a);a.click();a.remove();
+      setTimeout(()=>URL.revokeObjectURL(fileURL),1000);
+      feedback('Complete '+days+'-day CSV export created. Handle customer details securely.','success');
+    }catch(error){feedback('Report export failed: '+error.message,'error');}
+    finally{button.disabled=Boolean(reportData?.truncated);}
   }
   async function loadStaff(){
     const staff=await apiRequest('/auth/me',{authorize:true});
@@ -711,6 +755,14 @@ async function uploadProductWithPhoto(details, file){
     $a('admin-photo-link').addEventListener('change',updatePhotoSource);
     $a('admin-new-photo-file').addEventListener('change',previewDevicePhoto);
     updatePhotoSource();
+    $a('admin-report-period').addEventListener('change',()=>loadReports().catch(error=>{
+      $a('admin-report-note').textContent='Report could not load: '+error.message;
+      feedback('Report could not load: '+error.message,'error');
+    }));
+    $a('admin-report-refresh').addEventListener('click',()=>loadReports().catch(error=>{
+      $a('admin-report-note').textContent='Report could not load: '+error.message;
+      feedback('Report could not load: '+error.message,'error');
+    }));
     $a('admin-export-report').addEventListener('click',exportReports);
     $a('admin-release-expired').addEventListener('click',async()=>{
       const button=$a('admin-release-expired');
@@ -727,7 +779,12 @@ async function uploadProductWithPhoto(details, file){
       $a('admin-content').hidden=true;
       $a('admin-login').hidden=false;
       $a('admin-login-form').reset();
-      reportRows=[];
+      reportData=null;
+      $a('admin-report-stats').replaceChildren();
+      $a('admin-report-by-product').replaceChildren();
+      $a('admin-report-chart').replaceChildren();
+      $a('admin-report-chart-axis').replaceChildren();
+      $a('admin-report-note').textContent='Sign in to view reports.';
       $a('admin-report-stats').replaceChildren();
       $a('admin-product-list').replaceChildren();
       loadedOrders=[];
