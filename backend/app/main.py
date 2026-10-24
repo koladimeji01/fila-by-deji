@@ -10,21 +10,22 @@ import re
 from uuid import uuid4
 from fastapi import Depends, FastAPI, File, Form, HTTPException, Query, Request, Response, UploadFile, status
 from fastapi.middleware.cors import CORSMiddleware
-from sqlalchemy import func, select, text, update
+from sqlalchemy import func, or_, select, text, update
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session, selectinload
 
 from .config import get_settings
 from .rate_limit import limit_request
 from .database import get_db
-from .models import Order, OrderItem, Product, ProductInventory, ProductPhoto, User, SavedItem, DeliveryQuoteAudit, StaffApplication, StaffAccessAudit, EnquiryFollowup, InventoryChangeAudit, utcnow
+from .models import Order, OrderItem, Product, ProductInventory, ProductPhoto, User, SavedItem, DeliveryQuoteAudit, StaffApplication, StaffAccessAudit, EnquiryFollowup, InventoryChangeAudit, StaffNotificationRead, utcnow
 from .schemas import (AdminOrderResponse, CreateDraftOrderRequest, LoginRequest, OrderItemResponse, OrderResponse,
                       ProductResponse, RegisterRequest, StockLevelResponse, StockUpdateRequest, TokenResponse, UserResponse,
                       SaveItemRequest, SavedItemResponse, DeliveryQuoteRequest, AdminOverviewResponse,
                       AdminProductResponse, AdminProductUpdateRequest, AdminProductCreateRequest,
                       StaffStatusResponse, StaffAccountResponse, StaffDecisionRequest,
                       EnquiryFollowupRequest, InventoryAlertsResponse, LowStockAlertResponse,
-                      InventoryChangeResponse)
+                      InventoryChangeResponse, BusinessNotification, BusinessNotificationList,
+                      NotificationReadRequest)
 from .security import create_token, get_current_admin, get_current_user, get_current_staff_manager, hash_password, verify_password
 from .reservations import aware, cancel_order, expire_holds, reserve_order
 
@@ -400,6 +401,137 @@ def admin_staff_decision(user_id: str, body: StaffDecisionRequest,
     db.commit()
     db.refresh(target)
     return staff_record(target, application)
+
+
+# Notification feed is intentionally bounded; these are actionable in-app alerts,
+# not email/SMS or a complete historical event stream.
+NOTIFICATION_LOOKBACK_DAYS = 14
+
+
+def current_business_notifications(db: Session, admin: User) -> list[BusinessNotification]:
+    now = utcnow()
+    cutoff = now - timedelta(days=NOTIFICATION_LOOKBACK_DAYS)
+    alerts: list[BusinessNotification] = []
+
+    # Only existing staff managers may see registration requests.
+    if admin.can_manage_staff:
+        pending = db.execute(
+            select(StaffApplication, User.name)
+            .join(User, User.id == StaffApplication.user_id)
+            .where(StaffApplication.status == 'pending', User.is_active.is_(True))
+            .order_by(StaffApplication.requested_at.desc())
+            .limit(25)
+        ).all()
+        for application, name in pending:
+            alerts.append(BusinessNotification(
+                key='staff:' + application.user_id, kind='staff',
+                title='Staff access awaiting approval',
+                detail=name + ' has requested access to the business dashboard.',
+                destination='staff', created_at=aware(application.requested_at),
+            ))
+
+    # New/untouched enquiries only, over a bounded recent window; never paid orders.
+    recent_enquiries = db.execute(
+        select(Order, User.name)
+        .join(User, User.id == Order.user_id)
+        .outerjoin(EnquiryFollowup, EnquiryFollowup.order_id == Order.id)
+        .where(
+            Order.created_at >= cutoff, Order.status.in_(['draft', 'reserved']),
+            or_(EnquiryFollowup.order_id.is_(None), EnquiryFollowup.stage == 'new')
+        )
+        .order_by(Order.created_at.desc(), Order.id.desc())
+        .limit(25)
+    ).all()
+    for enquiry, name in recent_enquiries:
+        alerts.append(BusinessNotification(
+            key='enquiry:' + enquiry.id, kind='enquiry',
+            title='New customer enquiry',
+            detail=name + ' has an unpaid enquiry awaiting follow-up.',
+            destination='enquiries', created_at=aware(enquiry.created_at),
+        ))
+
+    # Available stock after temporary holds, restricted to published products.
+    low_stock = db.execute(
+        select(ProductInventory, Product.name)
+        .join(Product, Product.id == ProductInventory.product_id)
+        .where(Product.is_active.is_(True), ProductInventory.quantity <= 3)
+        .order_by(ProductInventory.quantity, Product.name, ProductInventory.size)
+        .limit(40)
+    ).all()
+    for row, product_name in low_stock:
+        alerts.append(BusinessNotification(
+            key=f'stock:{row.product_id}:{row.size}:{row.quantity}', kind='stock',
+            title='Out of stock' if row.quantity == 0 else 'Low stock',
+            detail=f'{product_name} · size {row.size}: {row.quantity} available units.',
+            destination='inventory',
+        ))
+
+    return alerts
+
+
+def notification_feed(db: Session, admin: User) -> BusinessNotificationList:
+    alerts = current_business_notifications(db, admin)
+    if alerts:
+        seen = set(db.scalars(
+            select(StaffNotificationRead.notification_key).where(
+                StaffNotificationRead.staff_user_id == admin.id,
+                StaffNotificationRead.notification_key.in_([item.key for item in alerts]),
+            )
+        ).all())
+        for item in alerts:
+            item.is_read = item.key in seen
+    return BusinessNotificationList(
+        unread_count=sum(not item.is_read for item in alerts),
+        notifications=alerts,
+    )
+
+
+@app.get('/api/v1/admin/notifications', response_model=BusinessNotificationList)
+def admin_notifications(db: Session = Depends(get_db),
+                        admin: User = Depends(get_current_admin)):
+    expire_holds(db)
+    return notification_feed(db, admin)
+
+
+@app.post('/api/v1/admin/notifications/read', response_model=BusinessNotificationList)
+def admin_read_notification(body: NotificationReadRequest,
+                            db: Session = Depends(get_db),
+                            admin: User = Depends(get_current_admin)):
+    expire_holds(db)
+    visible = current_business_notifications(db, admin)
+    if body.key not in {item.key for item in visible}:
+        raise HTTPException(404, 'Notification not found or unavailable')
+    if not db.get(StaffNotificationRead, (admin.id, body.key)):
+        db.add(StaffNotificationRead(staff_user_id=admin.id,
+                                     notification_key=body.key, read_at=utcnow()))
+        try:
+            db.commit()
+        except IntegrityError:
+            # A repeated click can race with a previous acknowledgement.
+            db.rollback()
+    return notification_feed(db, admin)
+
+
+@app.post('/api/v1/admin/notifications/read-all', response_model=BusinessNotificationList)
+def admin_read_all_notifications(db: Session = Depends(get_db),
+                                 admin: User = Depends(get_current_admin)):
+    expire_holds(db)
+    visible = current_business_notifications(db, admin)
+    known = set(db.scalars(select(StaffNotificationRead.notification_key).where(
+        StaffNotificationRead.staff_user_id == admin.id,
+        StaffNotificationRead.notification_key.in_([item.key for item in visible]),
+    )).all()) if visible else set()
+    for item in visible:
+        if item.key not in known:
+            db.add(StaffNotificationRead(
+                staff_user_id=admin.id, notification_key=item.key, read_at=utcnow()
+            ))
+    if len(known) < len(visible):
+        try:
+            db.commit()
+        except IntegrityError:
+            db.rollback()
+    return notification_feed(db, admin)
 
 
 @app.get('/api/v1/admin/overview', response_model=AdminOverviewResponse)
