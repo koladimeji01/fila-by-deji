@@ -299,6 +299,7 @@ async function uploadProductWithPhoto(details, file){
     }
     if(!preview.getAttribute('src'))preview.hidden=true;
     preview.addEventListener('error',()=>{preview.hidden=true});
+    preview.dataset.originalSrc=preview.getAttribute('src')||'';
     panel.append(preview);
     const modeLabel=node('label','admin-form-field','Replace photo using');
     const mode=node('select');
@@ -317,6 +318,8 @@ async function uploadProductWithPhoto(details, file){
       link.value=product.image_url;
     }
     urlLabel.append(link);
+    const previewLink=node('button','button button--outline admin-small-button','Preview image URL');
+    previewLink.type='button';
     const status=node('p','admin-muted');
     status.setAttribute('role','status');
     status.setAttribute('aria-live','polite');
@@ -326,10 +329,31 @@ async function uploadProductWithPhoto(details, file){
       const device=mode.value==='device';
       fileLabel.hidden=!device;file.disabled=!device;
       urlLabel.hidden=device;link.disabled=device;
+      previewLink.hidden=device;previewLink.disabled=device;
+      if(device && preview.dataset.objectUrl && file.files?.length){
+        preview.src=preview.dataset.objectUrl;preview.hidden=false;
+      }else if(preview.dataset.originalSrc){
+        preview.src=preview.dataset.originalSrc;preview.hidden=false;
+      }else{
+        preview.removeAttribute('src');preview.hidden=true;
+      }
       status.textContent='';
     }
     mode.addEventListener('change',switchMode);
     switchMode();
+    previewLink.addEventListener('click',()=>{
+      const candidate=link.value.trim();
+      try{
+        const target=new URL(candidate);
+        if(target.protocol!=='https:'||target.username||target.password||
+           !/\\.(jpg|jpeg|png|webp)$/i.test(target.pathname))throw new Error();
+        preview.src=target.href;
+        preview.hidden=false;
+        status.textContent='Preview requested. Check the image before replacing the current photo.';
+      }catch{
+        status.textContent='Enter a direct public HTTPS image URL ending in .jpg, .jpeg, .png or .webp.';
+      }
+    });
     file.addEventListener('change',()=>{
       const chosen=file.files?.[0];
       if(!chosen)return;
@@ -406,7 +430,7 @@ async function uploadProductWithPhoto(details, file){
         save.disabled=false;
       }
     });
-    panel.append(modeLabel,fileLabel,urlLabel,save,status);
+    panel.append(modeLabel,fileLabel,urlLabel,previewLink,save,status);
     return panel;
   }
   async function loadProducts(){
