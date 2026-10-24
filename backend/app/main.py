@@ -21,7 +21,7 @@ from .models import Order, OrderItem, Product, ProductInventory, ProductPhoto, U
 from .schemas import (AdminOrderResponse, CreateDraftOrderRequest, LoginRequest, OrderItemResponse, OrderResponse,
                       ProductResponse, RegisterRequest, StockLevelResponse, StockUpdateRequest, TokenResponse, UserResponse,
                       SaveItemRequest, SavedItemResponse, DeliveryQuoteRequest, AdminOverviewResponse,
-                      AdminProductResponse, AdminProductUpdateRequest, AdminProductCreateRequest,
+                      AdminProductResponse, AdminProductUpdateRequest, AdminProductCreateRequest, AdminProductPhotoLinkRequest,
                       StaffStatusResponse, StaffAccountResponse, StaffDecisionRequest,
                       EnquiryFollowupRequest, InventoryAlertsResponse, LowStockAlertResponse,
                       InventoryChangeResponse, BusinessNotification, BusinessNotificationList,
@@ -722,6 +722,57 @@ def admin_create_product(body: AdminProductCreateRequest,
     except IntegrityError:
         db.rollback()
         raise HTTPException(409, 'Could not create product; please retry')
+    db.refresh(product)
+    return AdminProductResponse(**product_out(product).model_dump(), is_active=product.is_active)
+
+
+@app.put('/api/v1/admin/products/{product_id}/photo', response_model=AdminProductResponse)
+async def admin_replace_product_photo(
+    product_id: str, photo: UploadFile = File(...),
+    db: Session = Depends(get_db), admin: User = Depends(get_current_admin),
+):
+    """Replace an existing photo atomically, without altering the product or stock.
+
+    Uploads are optimized to WebP; the unique image URL query invalidates browser caches.
+    """
+    product = db.scalar(select(Product).where(Product.id == product_id).with_for_update())
+    if product is None:
+        raise HTTPException(404, 'Product not found')
+    try:
+        raw = await photo.read(MAX_UPLOAD_BYTES + 1)
+    finally:
+        await photo.close()
+    optimized = optimized_product_photo(raw, photo.content_type)
+    record = db.get(ProductPhoto, product_id)
+    if record is None:
+        db.add(ProductPhoto(product_id=product_id, image_data=optimized, mime_type='image/webp'))
+    else:
+        record.image_data = optimized
+        record.mime_type = 'image/webp'
+        record.created_at = utcnow()
+    product.image_url = (
+        f'https://fila-by-deji-api.onrender.com/api/v1/product-images/{product_id}.webp'
+        f'?v={uuid4().hex[:12]}'
+    )
+    db.commit()
+    db.refresh(product)
+    return AdminProductResponse(**product_out(product).model_dump(), is_active=product.is_active)
+
+
+@app.put('/api/v1/admin/products/{product_id}/photo-url', response_model=AdminProductResponse)
+def admin_replace_product_photo_url(
+    product_id: str, body: AdminProductPhotoLinkRequest,
+    db: Session = Depends(get_db), admin: User = Depends(get_current_admin),
+):
+    """Use a hosted image instead, removing old uploaded bytes to avoid orphaned storage."""
+    product = db.scalar(select(Product).where(Product.id == product_id).with_for_update())
+    if product is None:
+        raise HTTPException(404, 'Product not found')
+    record = db.get(ProductPhoto, product_id)
+    if record is not None:
+        db.delete(record)
+    product.image_url = body.image_url
+    db.commit()
     db.refresh(product)
     return AdminProductResponse(**product_out(product).model_dump(), is_active=product.is_active)
 
