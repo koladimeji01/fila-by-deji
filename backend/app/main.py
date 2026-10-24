@@ -17,13 +17,14 @@ from sqlalchemy.orm import Session, selectinload
 from .config import get_settings
 from .rate_limit import limit_request
 from .database import get_db
-from .models import Order, OrderItem, Product, ProductInventory, ProductPhoto, User, SavedItem, DeliveryQuoteAudit, StaffApplication, StaffAccessAudit, EnquiryFollowup, utcnow
+from .models import Order, OrderItem, Product, ProductInventory, ProductPhoto, User, SavedItem, DeliveryQuoteAudit, StaffApplication, StaffAccessAudit, EnquiryFollowup, InventoryChangeAudit, utcnow
 from .schemas import (AdminOrderResponse, CreateDraftOrderRequest, LoginRequest, OrderItemResponse, OrderResponse,
                       ProductResponse, RegisterRequest, StockLevelResponse, StockUpdateRequest, TokenResponse, UserResponse,
                       SaveItemRequest, SavedItemResponse, DeliveryQuoteRequest, AdminOverviewResponse,
                       AdminProductResponse, AdminProductUpdateRequest, AdminProductCreateRequest,
                       StaffStatusResponse, StaffAccountResponse, StaffDecisionRequest,
-                      EnquiryFollowupRequest)
+                      EnquiryFollowupRequest, InventoryAlertsResponse, LowStockAlertResponse,
+                      InventoryChangeResponse)
 from .security import create_token, get_current_admin, get_current_user, get_current_staff_manager, hash_password, verify_password
 from .reservations import aware, cancel_order, expire_holds, reserve_order
 
@@ -598,6 +599,54 @@ def admin_inventory(db: Session = Depends(get_db), admin: User = Depends(get_cur
                                available_quantity=r.quantity) for r in rows]
 
 
+@app.get('/api/v1/admin/inventory/alerts', response_model=InventoryAlertsResponse)
+def admin_inventory_alerts(threshold: int = Query(3, ge=1, le=25),
+                           db: Session = Depends(get_db),
+                           admin: User = Depends(get_current_admin)):
+    """Current AVAILABLE stock (reserved items excluded); archived caps omitted."""
+    expire_holds(db)
+    records = db.execute(
+        select(ProductInventory, Product.name).join(
+            Product, Product.id == ProductInventory.product_id
+        ).where(Product.is_active.is_(True), ProductInventory.quantity <= threshold)
+        .order_by(ProductInventory.quantity, Product.name, ProductInventory.size)
+    ).all()
+    alerts = [
+        LowStockAlertResponse(
+            product_id=row.product_id, product_name=name, size=row.size,
+            available_quantity=row.quantity,
+            status='out' if row.quantity == 0 else 'low',
+        )
+        for row, name in records
+    ]
+    return InventoryAlertsResponse(
+        threshold=threshold,
+        out_of_stock=sum(x.status == 'out' for x in alerts),
+        low_stock=sum(x.status == 'low' for x in alerts),
+        alerts=alerts,
+    )
+
+
+@app.get('/api/v1/admin/inventory/changes', response_model=list[InventoryChangeResponse])
+def admin_inventory_changes(limit: int = Query(30, ge=1, le=100),
+                            db: Session = Depends(get_db),
+                            admin: User = Depends(get_current_admin)):
+    """Recent manual staff adjustments. Stock holds and expiries are NOT manual edits."""
+    rows = db.execute(
+        select(InventoryChangeAudit, Product.name, User.name)
+        .join(Product, Product.id == InventoryChangeAudit.product_id)
+        .join(User, User.id == InventoryChangeAudit.changed_by)
+        .order_by(InventoryChangeAudit.changed_at.desc(), InventoryChangeAudit.id.desc())
+        .limit(limit)
+    ).all()
+    return [InventoryChangeResponse(
+        id=entry.id, product_id=entry.product_id, product_name=product_name,
+        size=entry.size, previous_quantity=entry.previous_quantity,
+        new_quantity=entry.new_quantity, reason=entry.reason,
+        changed_by_name=staff_name, changed_at=aware(entry.changed_at),
+    ) for entry, product_name, staff_name in rows]
+
+
 @app.put('/api/v1/admin/inventory/{product_id}/{size}', response_model=StockLevelResponse)
 def admin_set_available(product_id: str, size: str, body: StockUpdateRequest,
                         db: Session = Depends(get_db), admin: User = Depends(get_current_admin)):
@@ -606,14 +655,22 @@ def admin_set_available(product_id: str, size: str, body: StockUpdateRequest,
         raise HTTPException(422, 'Invalid size')
     if db.get(Product, product_id) is None:
         raise HTTPException(404, 'Product not found')
-    result = db.execute(update(ProductInventory).where(
-        ProductInventory.product_id == product_id, ProductInventory.size == size
-    ).values(quantity=body.available_quantity))
-    if result.rowcount != 1:
-        db.rollback()
+    # Lock the variant so concurrent staff edits capture the actual preceding value.
+    row = db.get(ProductInventory, (product_id, size), with_for_update=True)
+    if row is None:
         raise HTTPException(409, 'Stock record missing. Run the product seed step.')
-    db.commit()
-    return StockLevelResponse(product_id=product_id, size=size, available_quantity=body.available_quantity)
+    previous = row.quantity
+    if previous != body.available_quantity:
+        row.quantity = body.available_quantity
+        db.add(InventoryChangeAudit(
+            product_id=product_id, size=size,
+            previous_quantity=previous, new_quantity=body.available_quantity,
+            reason=body.reason, changed_by=admin.id,
+        ))
+        db.commit()
+    return StockLevelResponse(
+        product_id=product_id, size=size, available_quantity=body.available_quantity
+    )
 
 
 def admin_order_out(order: Order, followup: EnquiryFollowup | None = None) -> AdminOrderResponse:
