@@ -1,5 +1,9 @@
 import io
 import json
+import csv
+from collections import Counter, defaultdict
+from datetime import datetime, time, timedelta, timezone
+from zoneinfo import ZoneInfo
 from contextlib import asynccontextmanager
 from PIL import Image, ImageOps, UnidentifiedImageError
 import re
@@ -8,7 +12,7 @@ from fastapi import Depends, FastAPI, File, Form, HTTPException, Query, Request,
 from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy import func, select, text, update
 from sqlalchemy.exc import IntegrityError
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, selectinload
 
 from .config import get_settings
 from .rate_limit import limit_request
@@ -620,6 +624,129 @@ def admin_order_out(order: Order, followup: EnquiryFollowup | None = None) -> Ad
         result.update(followup_stage=followup.stage, internal_note=followup.internal_note,
                       followup_updated_at=aware(followup.updated_at))
     return AdminOrderResponse(**result)
+
+
+# Reports are bounded to prevent unbounded memory/DB work on an operations API.
+REPORT_MAX_ORDERS = 5000
+REPORT_TZ = ZoneInfo('Africa/Lagos')
+
+
+def report_window(days: int):
+    last = datetime.now(REPORT_TZ).date()
+    first = last - timedelta(days=days - 1)
+    start = datetime.combine(first, time.min, tzinfo=REPORT_TZ).astimezone(timezone.utc)
+    end = datetime.combine(last + timedelta(days=1), time.min, tzinfo=REPORT_TZ).astimezone(timezone.utc)
+    return first, last, start, end
+
+
+def report_entries(db: Session, days: int):
+    first, last, start, end = report_window(days)
+    rows = db.scalars(
+        select(Order)
+        .options(selectinload(Order.items), selectinload(Order.user))
+        .where(Order.created_at >= start, Order.created_at < end)
+        .order_by(Order.created_at.desc(), Order.id.desc())
+        .limit(REPORT_MAX_ORDERS + 1)
+    ).all()
+    limited = len(rows) > REPORT_MAX_ORDERS
+    return first, last, rows[:REPORT_MAX_ORDERS], limited
+
+
+@app.get('/api/v1/admin/reports')
+def admin_analytics_report(days: int = Query(30, ge=7, le=90),
+                           db: Session = Depends(get_db),
+                           admin: User = Depends(get_current_admin)):
+    """Actual enquiry activity, not paid transactions; max 5000 newest entries.
+
+    The 7/30/90-day windows follow Lagos calendar dates, not rolling UTC hours.
+    """
+    if days not in (7, 30, 90):
+        raise HTTPException(422, 'Choose a 7, 30 or 90 day report')
+    expire_holds(db)
+    first, last, orders, truncated = report_entries(db, days)
+    day_counts = Counter()
+    unit_counts = Counter()
+    product_counts = {}
+    statuses = Counter()
+    customers = set()
+    quoted = 0
+    for order in orders:
+        day = aware(order.created_at).astimezone(REPORT_TZ).date().isoformat()
+        day_counts[day] += 1
+        customers.add(order.user_id)
+        statuses[order.status] += 1
+        if order.shipping_quote_kobo is not None:
+            quoted += 1
+        for item in order.items:
+            unit_counts[day] += item.quantity
+            key = item.product_id
+            if key not in product_counts:
+                product_counts[key] = {'product_id': key, 'name': item.product_name,
+                                       'selected_units': 0, 'enquiries': 0}
+            product_counts[key]['selected_units'] += item.quantity
+            product_counts[key]['enquiries'] += 1
+    daily = []
+    for day_offset in range(days):
+        label = (first + timedelta(days=day_offset)).isoformat()
+        daily.append({'day': label, 'enquiries': day_counts[label],
+                      'selected_units': unit_counts[label]})
+    by_product = sorted(product_counts.values(),
+                        key=lambda item: (-item['selected_units'], item['name'], item['product_id']))
+    return {
+        'days': days, 'start_date': first.isoformat(), 'end_date': last.isoformat(),
+        'timezone': 'Africa/Lagos', 'analyzed_entries': len(orders),
+        'truncated': truncated,
+        'metrics': {
+            'enquiries': len(orders), 'unique_customers': len(customers),
+            'drafts': statuses['draft'], 'reserved': statuses['reserved'],
+            'cancelled': statuses['cancelled'], 'expired': statuses['expired'],
+            'quoted': quoted, 'selected_units': sum(unit_counts.values()),
+        },
+        'daily': daily, 'products': by_product[:20],
+    }
+
+
+def safe_csv_cell(value):
+    """Prevent spreadsheets from executing formulas supplied as customer text."""
+    result = str(value if value is not None else '')
+    if result.lstrip().startswith(('=', '+', '-', '@', '\t', '\r', '\n')):
+        result = "'" + result
+    return result
+
+
+@app.get('/api/v1/admin/reports/export')
+def admin_export_report(days: int = Query(30, ge=7, le=90),
+                        db: Session = Depends(get_db),
+                        admin: User = Depends(get_current_admin)):
+    """CSV of dated enquiries; never export payment or private follow-up notes."""
+    if days not in (7, 30, 90):
+        raise HTTPException(422, 'Choose a 7, 30 or 90 day report')
+    expire_holds(db)
+    first, last, orders, truncated = report_entries(db, days)
+    if truncated:
+        raise HTTPException(409, 'Too many entries for a complete CSV. Choose a shorter period.')
+    buffer = io.StringIO(newline='')
+    writer = csv.writer(buffer, lineterminator='\r\n')
+    writer.writerow(['Enquiry date (Lagos)', 'Reference', 'Customer', 'Email',
+                     'Order state (unpaid)', 'Delivery destination', 'Selected units',
+                     'Items subtotal (NGN)', 'Delivery quote (NGN)'])
+    for order in orders:
+        date = aware(order.created_at).astimezone(REPORT_TZ).isoformat()
+        writer.writerow([safe_csv_cell(date), safe_csv_cell(order.id),
+                         safe_csv_cell(order.user.name), safe_csv_cell(order.user.email),
+                         safe_csv_cell(order.status),
+                         safe_csv_cell(order.delivery_destination),
+                         sum(item.quantity for item in order.items),
+                         order.total_kobo // 100,
+                         order.shipping_quote_kobo // 100 if order.shipping_quote_kobo is not None else ''])
+    return Response(
+        content='\ufeff' + buffer.getvalue(), media_type='text/csv; charset=utf-8',
+        headers={
+            'Content-Disposition': f'attachment; filename="fila-enquiries-{first}-{last}.csv"',
+            'Cache-Control': 'no-store',
+            'X-Content-Type-Options': 'nosniff',
+        },
+    )
 
 
 @app.get('/api/v1/admin/orders', response_model=list[AdminOrderResponse])
