@@ -224,10 +224,28 @@ class StockLevelResponse(BaseModel):
     available_quantity: int
 
 
+class EnquiryFollowupRequest(BaseModel):
+    """Private staff workflow; does not accept payment or order status fields."""
+    model_config = ConfigDict(extra='forbid')
+    stage: Literal['new', 'contacted', 'awaiting_reply', 'closed']
+    internal_note: str = Field(max_length=1200)
+
+    @field_validator('internal_note')
+    @classmethod
+    def validate_note(cls, value: str) -> str:
+        note = value.strip()
+        if any(ord(character) < 32 and character not in '\n\t' for character in note):
+            raise ValueError('Unsupported control character in note')
+        return note
+
+
 class AdminOrderResponse(OrderResponse):
     user_id: str
     customer_name: str | None = None
     customer_email: EmailStr | None = None
+    followup_stage: str = 'new'
+    internal_note: str = ''
+    followup_updated_at: datetime | None = None
 
 
 class SaveItemRequest(BaseModel):
