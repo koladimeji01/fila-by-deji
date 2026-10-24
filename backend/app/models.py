@@ -50,6 +50,20 @@ class StaffAccessAudit(Base):
     ),)
 
 
+
+class StaffNotificationRead(Base):
+    """Private, per-staff acknowledgement of currently generated business alerts."""
+    __tablename__ = 'staff_notification_reads'
+    staff_user_id: Mapped[str] = mapped_column(
+        ForeignKey('users.id', ondelete='CASCADE'), primary_key=True
+    )
+    notification_key: Mapped[str] = mapped_column(String(140), primary_key=True)
+    read_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, default=utcnow
+    )
+
+
+
 class Product(Base):
     __tablename__ = 'products'
     id: Mapped[str] = mapped_column(String(60), primary_key=True)
