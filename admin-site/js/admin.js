@@ -274,16 +274,152 @@ async function uploadProductWithPhoto(details, file){
       feedback('New product was not confirmed: '+error.message,'error');
     }finally{save.disabled=false;}
   }
+  const productPhotoPreviews=new Set();
+  function clearProductPhotoPreviews(){
+    for(const url of productPhotoPreviews)URL.revokeObjectURL(url);
+    productPhotoPreviews.clear();
+  }
+  function productPhotoEditor(product){
+    const panel=node('section','admin-product-photo-editor');
+    panel.setAttribute('aria-label','Photo for '+product.name);
+    panel.append(node('h4','','Product photo'));
+    const preview=node('img','admin-product-photo-editor__image');
+    preview.alt='Current photo for '+product.name;
+    preview.loading='lazy';
+    if(typeof product.image_url==='string'){
+      if(/^assets\/[a-z0-9_-]+\.(jpg|jpeg|png|webp)$/i.test(product.image_url)){
+        preview.src='https://fila-by-deji.vercel.app/'+product.image_url;
+      }else{
+        try{
+          const target=new URL(product.image_url);
+          if(target.protocol==='https:'&&!target.username&&!target.password&&
+             /\.(jpg|jpeg|png|webp)$/i.test(target.pathname))preview.src=target.href;
+        }catch{}
+      }
+    }
+    if(!preview.getAttribute('src'))preview.hidden=true;
+    preview.addEventListener('error',()=>{preview.hidden=true});
+    panel.append(preview);
+    const modeLabel=node('label','admin-form-field','Replace photo using');
+    const mode=node('select');
+    for(const [value,label] of [['device','Photo from device'],['url','Public photo URL']]){
+      const option=node('option','',label);option.value=value;mode.append(option);
+    }
+    modeLabel.append(mode);
+    const fileLabel=node('label','admin-form-field','Select JPG, PNG or WebP (max 5 MB)');
+    const file=node('input');file.type='file';
+    file.accept='image/jpeg,image/png,image/webp,.jpg,.jpeg,.png,.webp';
+    fileLabel.append(file);
+    const urlLabel=node('label','admin-form-field','Public HTTPS photo URL');
+    const link=node('input');link.type='url';link.maxLength=300;
+    link.placeholder='https://your-photo-host.com/new-cap.jpg';
+    if(typeof product.image_url==='string'&&product.image_url.startsWith('https://')){
+      link.value=product.image_url;
+    }
+    urlLabel.append(link);
+    const status=node('p','admin-muted');
+    status.setAttribute('role','status');
+    status.setAttribute('aria-live','polite');
+    const save=node('button','button button--outline admin-small-button','Replace photo');
+    save.type='button';
+    function switchMode(){
+      const device=mode.value==='device';
+      fileLabel.hidden=!device;file.disabled=!device;
+      urlLabel.hidden=device;link.disabled=device;
+      status.textContent='';
+    }
+    mode.addEventListener('change',switchMode);
+    switchMode();
+    file.addEventListener('change',()=>{
+      const chosen=file.files?.[0];
+      if(!chosen)return;
+      if(!['image/jpeg','image/png','image/webp'].includes(chosen.type)
+         ||chosen.size===0||chosen.size>5*1024*1024){
+        file.value='';
+        status.textContent='Choose a JPG, PNG or WebP image under 5 MB.';
+        return;
+      }
+      const old=preview.dataset.objectUrl;
+      if(old){productPhotoPreviews.delete(old);URL.revokeObjectURL(old);}
+      const temporary=URL.createObjectURL(chosen);
+      productPhotoPreviews.add(temporary);
+      preview.dataset.objectUrl=temporary;
+      preview.src=temporary;preview.hidden=false;
+      status.textContent='Preview ready. Select Replace photo to save.';
+    });
+    save.addEventListener('click',async()=>{
+      let body=null;
+      let chosen=null;
+      if(mode.value==='device'){
+        chosen=file.files?.[0];
+        if(!chosen||!['image/jpeg','image/png','image/webp'].includes(chosen.type)
+           ||chosen.size===0||chosen.size>5*1024*1024){
+          status.textContent='Choose a valid JPG, PNG or WebP photo from your device (up to 5 MB).';
+          return;
+        }
+      }else{
+        const imageUrl=link.value.trim();
+        try{
+          const target=new URL(imageUrl);
+          if(target.protocol!=='https:'||target.username||target.password||
+            !/\.(jpg|jpeg|png|webp)$/i.test(target.pathname))throw new Error();
+        }catch{
+          status.textContent='Use a direct public HTTPS .jpg, .jpeg, .png or .webp image link.';
+          return;
+        }
+        if(imageUrl===product.image_url){status.textContent='This is already the current photo.';return;}
+        body={image_url:imageUrl};
+      }
+      if(!window.confirm('Replace the existing picture for '+product.name+'? Product details and stock will not change.'))return;
+      save.disabled=true;
+      status.textContent='Saving replacement photo…';
+      try{
+        const route='/admin/products/'+encodeURIComponent(product.id);
+        let changed;
+        if(chosen){
+          const data=new FormData();
+          data.append('photo',chosen,chosen.name);
+          const access=token();
+          if(!access)throw new Error('Staff sign-in required');
+          const response=await fetch(API_BASE+route+'/photo',{
+            method:'PUT',headers:{Authorization:'Bearer '+access,Accept:'application/json'},
+            body:data,credentials:'omit',cache:'no-store'
+          });
+          const outcome=await response.json().catch(()=>({}));
+          if(!response.ok){
+            if(response.status===401)storeToken('');
+            throw new Error(typeof outcome.detail==='string'?outcome.detail:
+              'Unable to upload photo ('+response.status+')');
+          }
+          changed=outcome;
+        }else{
+          changed=await apiRequest(route+'/photo-url',{
+            method:'PUT',authorize:true,body
+          });
+        }
+        if(!changed?.id)throw new Error('Photo update was not confirmed');
+        await loadProducts();
+        feedback('Photo updated for '+product.name+'. Product stock and historical enquiries are unchanged.','success');
+      }catch(error){
+        status.textContent='Photo was not updated: '+error.message;
+        feedback('Photo replacement failed: '+error.message,'error');
+        save.disabled=false;
+      }
+    });
+    panel.append(modeLabel,fileLabel,urlLabel,save,status);
+    return panel;
+  }
   async function loadProducts(){
     const products=await apiRequest('/admin/products',{authorize:true});
     if(!Array.isArray(products))throw new Error('Unexpected product response.');
     const list=$a('admin-product-list');
+    clearProductPhotoPreviews();
     list.replaceChildren();
     for(const product of products){
       const form=node('form','admin-product-card');
       const title=node('div','admin-product-card__heading');
       title.append(node('h3','',product.name),node('span','admin-status-pill',product.is_active?'Visible':'Archived'));
-      form.append(title);
+      form.append(title,productPhotoEditor(product));
       const fields=[
         inputField('Product name',product.name,{maxLength:150}),
         inputField('Category',product.category,{maxLength:50}),
