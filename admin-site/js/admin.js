@@ -448,6 +448,59 @@ async function uploadProductWithPhoto(details, file){
   async function refreshOverview(){
     displayOverview(await apiRequest('/admin/overview',{authorize:true}));
   }
+  async function loadStockMonitoring(){
+    const threshold=Number($a('admin-stock-threshold').value);
+    if(![2,3,5,10].includes(threshold))throw new Error('Choose a valid stock threshold.');
+    const [data,history]=await Promise.all([
+      apiRequest('/admin/inventory/alerts?threshold='+threshold,{authorize:true}),
+      apiRequest('/admin/inventory/changes?limit=30',{authorize:true}),
+    ]);
+    if(data.threshold!==threshold||!Array.isArray(data.alerts)||!Array.isArray(history)){
+      throw new Error('Invalid stock monitoring response.');
+    }
+    const summary=$a('admin-inventory-alerts-summary');
+    const alerts=$a('admin-inventory-alerts-list');
+    const log=$a('admin-inventory-history-list');
+    summary.replaceChildren();alerts.replaceChildren();log.replaceChildren();
+    for(const [title,count] of [
+      ['Out of stock sizes',data.out_of_stock],
+      ['Low stock sizes',data.low_stock],
+      ['Sizes requiring attention',data.alerts.length],
+    ]){
+      const card=node('article','admin-inventory-summary-card');
+      card.append(node('span','',title),node('strong','',count));
+      summary.append(card);
+    }
+    $a('admin-inventory-alerts-note').textContent='Checking published caps at or below '+threshold+
+      ' available units per size. This is an on-demand report, not a push notification.';
+    if(!data.alerts.length){
+      alerts.append(node('p','admin-muted','No published cap sizes are below the selected threshold.'));
+    }
+    for(const item of data.alerts){
+      const row=node('div','admin-inventory-alert');
+      const info=node('div');
+      info.append(node('strong','',item.product_name+' · Size '+item.size));
+      info.append(node('span','admin-muted','Available: '+item.available_quantity+' units'));
+      const level=node('span','admin-status-pill admin-inventory-alert__'+item.status,
+        item.status==='out'?'Out of stock':'Low stock');
+      row.append(info,level);alerts.append(row);
+    }
+    if(!history.length)log.append(node('p','admin-muted','No staff inventory changes have been recorded yet.'));
+    const reasonNames={restock:'Restock',correction:'Stock count correction',damage:'Damaged / unavailable',other:'Other adjustment'};
+    for(const item of history){
+      const row=node('div','admin-inventory-history-row');
+      const title=node('div');
+      title.append(node('strong','',item.product_name+' · Size '+item.size));
+      title.append(node('span','admin-muted',(reasonNames[item.reason]||item.reason)+' · '+item.changed_by_name));
+      const detail=node('div','admin-inventory-history-detail');
+      detail.append(node('strong','',item.previous_quantity+' → '+item.new_quantity));
+      const when=new Date(item.changed_at);
+      if(!Number.isNaN(when.getTime())){
+        detail.append(node('small','admin-muted',when.toLocaleString('en-NG',{dateStyle:'medium',timeStyle:'short'})));
+      }
+      row.append(title,detail);log.append(row);
+    }
+  }
   async function loadInventory(){
     const [items,products]=await Promise.all([
       apiRequest('/admin/inventory',{authorize:true}),
@@ -467,6 +520,18 @@ async function uploadProductWithPhoto(details, file){
       input.value=String(item.available_quantity);
       input.setAttribute('aria-label','Available units for '+(productNames.get(item.product_id)||item.product_id)+' size '+item.size);
       col.append(input);tr.append(col);
+      const reasonCell=node('td');
+      const reason=node('select','admin-stock-reason');
+      for(const [value,label] of [
+        ['correction','Stock count correction'],
+        ['restock','Restock delivery'],
+        ['damage','Damaged / unavailable'],
+        ['other','Other adjustment'],
+      ]){
+        const option=node('option','',label);option.value=value;reason.append(option);
+      }
+      reason.setAttribute('aria-label','Reason for changing '+(productNames.get(item.product_id)||item.product_id)+' size '+item.size);
+      reasonCell.append(reason);tr.append(reasonCell);
       const action=node('td');
       const save=node('button','button button--dark admin-small-button','Save stock');
       save.type='button';
@@ -477,19 +542,19 @@ async function uploadProductWithPhoto(details, file){
         }
         if(qty===item.available_quantity){feedback('No changes to save.');return;}
         const product=productNames.get(item.product_id)||item.product_id;
-        if(!window.confirm('Change AVAILABLE stock for '+product+' size '+item.size+' from '+item.available_quantity+' to '+qty+'?'))return;
+        if(!window.confirm('Change AVAILABLE stock for '+product+' size '+item.size+' from '+item.available_quantity+' to '+qty+'? Reason: '+reason.options[reason.selectedIndex].text+'.'))return;
         save.disabled=true;
         try{
           await apiRequest('/admin/inventory/'+encodeURIComponent(item.product_id)+'/'+encodeURIComponent(item.size),{
-            method:'PUT',authorize:true,body:{available_quantity:qty}
+            method:'PUT',authorize:true,body:{available_quantity:qty,reason:reason.value}
           });
-          await Promise.all([loadInventory(),refreshOverview()]);
+          await Promise.all([loadInventory(),refreshOverview(),loadStockMonitoring()]);
           feedback('Stock saved for '+product+' size '+item.size+'.','success');
         }catch(error){feedback('Stock was not updated: '+error.message,'error');save.disabled=false;}
       });
       action.append(save);tr.append(action);body.append(tr);
     }
-    if(!items.length){const row=node('tr');const cell=node('td','', 'No inventory rows available.');cell.colSpan=4;row.append(cell);body.append(row);}
+    if(!items.length){const row=node('tr');const cell=node('td','', 'No inventory rows available.');cell.colSpan=5;row.append(cell);body.append(row);}
   }
   const statusLabel=status=>({
     draft:'Unpaid selection / enquiry',
@@ -728,7 +793,7 @@ async function uploadProductWithPhoto(details, file){
     const allowed=await verified();if(!allowed)return;
     feedback('Loading inventory and enquiries…');
     offset=0;loadedOrders=[];$a('admin-order-list').replaceChildren();
-    const results=await Promise.allSettled([loadProducts(),loadInventory(),loadOrders(),loadReports(),loadStaff(),loadStaffManagement()]);
+    const results=await Promise.allSettled([loadProducts(),loadInventory(),loadStockMonitoring(),loadOrders(),loadReports(),loadStaff(),loadStaffManagement()]);
     const failures=results.filter(result=>result.status==='rejected');
     if(failures.length){
       feedback('Some sections could not load. Please refresh. '+failures.map(x=>x.reason?.message||'Service error').join('; '),'error');
@@ -746,6 +811,14 @@ async function uploadProductWithPhoto(details, file){
     $a('admin-staff-refresh').addEventListener('click',loadStaffManagement);
     $a('admin-refresh').addEventListener('click',loadDashboard);
     $a('admin-more-orders').addEventListener('click',loadOrders);
+    $a('admin-stock-threshold').addEventListener('change',()=>loadStockMonitoring().catch(error=>{
+      $a('admin-inventory-alerts-note').textContent='Unable to refresh stock alerts: '+error.message;
+      feedback('Unable to refresh stock alerts: '+error.message,'error');
+    }));
+    $a('admin-inventory-refresh').addEventListener('click',()=>loadStockMonitoring().catch(error=>{
+      $a('admin-inventory-alerts-note').textContent='Unable to refresh stock alerts: '+error.message;
+      feedback('Unable to refresh stock alerts: '+error.message,'error');
+    }));
     $a('admin-enquiry-search').addEventListener('input',renderVisibleOrders);
     $a('admin-enquiry-stage-filter').addEventListener('change',renderVisibleOrders);
     $a('admin-open-add-product').addEventListener('click',()=>toggleProductCreator($a('admin-create-product').hidden));
@@ -789,6 +862,9 @@ async function uploadProductWithPhoto(details, file){
       $a('admin-product-list').replaceChildren();
       loadedOrders=[];
       $a('admin-order-list').replaceChildren();
+      $a('admin-inventory-alerts-summary').replaceChildren();
+      $a('admin-inventory-alerts-list').replaceChildren();
+      $a('admin-inventory-history-list').replaceChildren();
       $a('admin-staff-section').hidden=true;
       $a('admin-staff-nav').hidden=true;
       $a('admin-staff-list').replaceChildren();
