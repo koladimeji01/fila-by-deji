@@ -254,6 +254,18 @@ class AdminProductCreateRequest(BaseModel):
         return values
 
 
+class AdminProductPhotoLinkRequest(BaseModel):
+    """Switch an existing product to a validated externally hosted HTTPS image."""
+    model_config = ConfigDict(extra='forbid')
+    image_url: str = Field(min_length=12, max_length=300)
+
+    @field_validator('image_url')
+    @classmethod
+    def validate_image_url(cls, value: str) -> str:
+        return AdminProductCreateRequest.validate_image_url(value)
+
+
+
 class StockUpdateRequest(BaseModel):
     model_config = ConfigDict(extra='forbid')
     available_quantity: int = Field(ge=0, le=100000, strict=True)
