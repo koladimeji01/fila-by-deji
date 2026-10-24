@@ -453,3 +453,16 @@ img.image-unavailable{opacity:0!important}.product-card__media:has(img.image-una
 .admin-notification-read-label{font-size:12px;color:#777;font-weight:700;padding:7px}
 .admin-notifications-actions :focus-visible,.admin-notification-actions :focus-visible{outline:3px solid var(--gold);outline-offset:2px}
 @media(max-width:680px){.admin-notification-card{align-items:stretch;flex-direction:column;padding:13px}.admin-notification-actions .button{flex:1}.admin-notifications-actions,.admin-notifications-actions .button{width:100%}}
+
+
+/* Stage 11: accessible self-service staff profile and security settings. */
+.admin-account-settings{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:17px;margin:20px 0}
+.admin-account-form{display:flex;flex-direction:column;align-items:stretch;gap:13px;border:1px solid var(--border);background:#fff;border-radius:14px;padding:clamp(17px,2.5vw,25px);min-width:0}
+.admin-account-form h3{font-size:19px;margin:0 0 5px}
+.admin-account-form p{margin:0}
+.admin-account-form label{display:grid;gap:7px;font-size:12px;font-weight:700}
+.admin-account-form input{min-width:0;width:100%;height:44px;padding:10px 12px;border:1px solid #bcb6a8;border-radius:9px;background:#fff;font:inherit;font-size:14px;font-weight:400}
+.admin-account-form .button{align-self:flex-start;margin-top:auto;min-height:42px}
+.admin-settings-feedback{font-size:12px;color:#604e24;min-height:15px}
+.admin-account-form input:focus-visible{outline:3px solid var(--gold);outline-offset:2px}
+@media(max-width:750px){.admin-account-settings{grid-template-columns:1fr}.admin-account-form .button{align-self:stretch}}
