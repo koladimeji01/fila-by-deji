@@ -194,7 +194,7 @@ def admin_change_own_password(body: StaffPasswordChangeRequest,
     """Verify the old password, rotate hash, invalidate all prior JWT versions."""
     user = db.get(User, admin.id, with_for_update=True)
     if not verify_password(body.current_password, user.password_hash):
-        raise HTTPException(401, 'Current password is incorrect')
+        raise HTTPException(400, 'Current password is incorrect')
     if verify_password(body.new_password, user.password_hash):
         raise HTTPException(422, 'Choose a different password from your current one')
     user.password_hash = hash_password(body.new_password)
