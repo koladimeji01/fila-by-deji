@@ -381,3 +381,25 @@ img.image-unavailable{opacity:0!important}.product-card__media:has(img.image-una
 .admin-followup-actions small{font-size:11px}
 .admin-followup-form :focus-visible,.admin-enquiry-tools :focus-visible{outline:3px solid var(--gold);outline-offset:2px}
 @media(max-width:540px){.admin-enquiry-tools label{max-width:none}.admin-followup-actions .button{width:100%}}
+
+
+/* Stage 8 — operational analytics, reports, and scalable bar-chart styling. */
+.admin-report-tools{display:flex;align-items:end;gap:12px;flex-wrap:wrap;margin:3px 0 20px}
+.admin-report-tools label{display:grid;gap:7px;min-width:180px;font-size:12px;font-weight:700}
+.admin-report-tools select{min-width:190px;height:44px;padding:10px 14px;border:1px solid #bdb7a9;border-radius:9px;background:#fff;font:inherit;font-size:14px;font-weight:500}
+.admin-report-tools button{min-height:44px}
+.admin-report-tools button:disabled{opacity:.5;cursor:not-allowed}
+.admin-report-chart-card{margin-top:20px;border:1px solid var(--border);border-radius:14px;background:#fff;padding:clamp(16px,3vw,26px);box-shadow:0 5px 20px #00000008}
+.admin-report-heading{display:flex;align-items:start;justify-content:space-between;gap:15px;flex-wrap:wrap}
+.admin-report-heading h3{font-size:19px;margin:0 0 7px}
+.admin-report-heading p{margin:0}
+.admin-report-chart-total{font-size:15px;font-weight:800}
+.admin-report-chart{display:flex;align-items:end;gap:clamp(1px,.5vw,7px);height:210px;padding:15px 5px 0;position:relative;border-bottom:1px solid #cfc8b6;background:repeating-linear-gradient(to top,transparent 0,transparent calc(25% - 1px),#f4f1ea calc(25% - 1px),#f4f1ea 25%);overflow:hidden}
+.admin-report-day{min-width:0;flex:1;height:100%;display:flex;align-items:flex-end}
+.admin-report-bar{display:block;width:100%;min-height:2px;background:linear-gradient(180deg,#ddba64 0%,#987323 100%);border-radius:5px 5px 0 0;transition:height .2s ease}
+.admin-report-bar--zero{background:#e8e3d7;border-radius:0}
+.admin-report-chart-axis{display:flex;justify-content:space-between;font-size:11px;color:#666;margin:12px 4px 0}
+.admin-report-chart--empty .admin-report-day{opacity:.3}
+.admin-report-empty-note{position:absolute;top:44%;width:100%;text-align:center;margin:0;font-weight:600;font-size:13px;color:#6b634f}
+.admin-report-tools :focus-visible{outline:3px solid var(--gold);outline-offset:2px}
+@media(max-width:560px){.admin-report-tools label,.admin-report-tools button{width:100%}.admin-report-tools select{width:100%}.admin-report-chart{height:175px;gap:2px}.admin-report-row{flex-wrap:wrap}.admin-report-row strong{white-space:normal}}
