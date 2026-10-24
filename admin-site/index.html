@@ -155,8 +155,29 @@
    <div id="admin-product-list" class="admin-product-list" aria-live="polite"></div>
   </section>
   <section class="admin-section" aria-labelledby="admin-inventory-title">
-   <div class="admin-section__heading"><div><h2 id="admin-inventory-title">Available inventory</h2><p>Adjust available units per size. Changes appear in the public catalog.</p></div></div>
-   <div class="admin-table-scroll"><table class="admin-table"><thead><tr><th scope="col">Cap</th><th scope="col">Size</th><th scope="col">Available units</th><th scope="col">Update</th></tr></thead><tbody id="admin-stock-rows"></tbody></table></div>
+   <div class="admin-section__heading"><div><h2 id="admin-inventory-title">Available inventory</h2><p>Adjust available units per size. Each manual edit is recorded for accountability.</p></div></div>
+   <div class="admin-table-scroll"><table class="admin-table"><thead><tr><th scope="col">Cap</th><th scope="col">Size</th><th scope="col">Available units</th><th scope="col">Reason</th><th scope="col">Update</th></tr></thead><tbody id="admin-stock-rows"></tbody></table></div>
+   <div class="admin-inventory-monitor">
+     <div class="admin-section__heading">
+       <div><h3>Low-stock monitoring</h3><p>Based on available sizes of published caps only. Held items aren't available stock.</p></div>
+       <div class="admin-inventory-tools">
+         <label for="admin-stock-threshold">Alert when stock is at or below
+           <select id="admin-stock-threshold">
+             <option value="2">2 units</option>
+             <option value="3" selected>3 units</option>
+             <option value="5">5 units</option>
+             <option value="10">10 units</option>
+           </select>
+         </label>
+         <button type="button" class="button button--outline admin-small-button" id="admin-inventory-refresh">Refresh</button>
+       </div>
+     </div>
+     <p id="admin-inventory-alerts-note" class="admin-muted" role="status" aria-live="polite">Stock monitoring loads after staff verification.</p>
+     <div id="admin-inventory-alerts-summary" class="admin-inventory-alert-summary"></div>
+     <div id="admin-inventory-alerts-list" class="admin-inventory-alert-list" aria-live="polite"></div>
+     <div class="admin-section__heading admin-inventory-history-heading"><div><h3>Recent staff stock changes</h3><p>Includes manual adjustments only; customer reservations and expired holds are excluded.</p></div></div>
+     <div id="admin-inventory-history-list" class="admin-inventory-history" aria-live="polite"></div>
+   </div>
   </section>
   <section class="admin-section" aria-labelledby="admin-orders-title">
    <div class="admin-section__heading"><div><h2 id="admin-orders-title">Customer enquiries and selections</h2><p>Track customer follow-ups and private staff notes. These are unpaid selections, not completed orders.</p></div></div>
