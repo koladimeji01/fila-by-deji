@@ -49,7 +49,7 @@ async function uploadProductWithPhoto(details, file){
     if(text!==undefined)element.textContent=String(text);
     return element;
   };
-  let offset=0,loading=false,inventoryItems=[],productNames=new Map();
+  let offset=0,loading=false,inventoryItems=[],productNames=new Map(),loadedOrders=[];
   const feedback=(message,kind='')=>{
     const target=$a('admin-status');
     if(!target)return;
@@ -497,13 +497,83 @@ async function uploadProductWithPhoto(details, file){
           await apiRequest('/admin/orders/'+encodeURIComponent(order.id)+'/delivery-quote',{
             method:'PUT',authorize:true,body:{shipping_amount_ngn:amount}
           });
-          await refreshOverview();offset=0;$a('admin-order-list').replaceChildren();await loadOrders();
+          await refreshOverview();offset=0;loadedOrders=[];await loadOrders();
           feedback('Delivery quote saved. Customer can view the estimate in their account.','success');
         }catch(error){feedback('Quote was not saved: '+error.message,'error');button.disabled=false;}
       });
       card.append(form);
     }
+    const followup=node('form','admin-followup-form');
+    const heading=node('h4','','Private staff follow-up');
+    const stageLabel=node('label','','Follow-up status');
+    const stageSelect=node('select');
+    stageSelect.required=true;
+    for(const [value,label] of [
+      ['new','New — not contacted'],['contacted','Contacted'],
+      ['awaiting_reply','Awaiting customer reply'],['closed','Closed follow-up (not paid)']
+    ]){
+      const option=node('option','',label);option.value=value;
+      if((order.followup_stage||'new')===value)option.selected=true;
+      stageSelect.append(option);
+    }
+    stageLabel.append(stageSelect);
+    const noteLabel=node('label','','Internal note (private)');
+    const note=node('textarea');
+    note.rows=3;note.maxLength=1200;
+    note.placeholder='e.g. Emailed about delivery location. Awaiting confirmation.';
+    note.value=order.internal_note||'';
+    noteLabel.append(note);
+    const actions=node('div','admin-followup-actions');
+    const save=node('button','button button--dark admin-small-button','Save follow-up');
+    save.type='submit';
+    actions.append(save);
+    if(order.followup_updated_at){
+      const d=new Date(order.followup_updated_at);
+      if(!Number.isNaN(d.getTime())){
+        actions.append(node('small','admin-muted','Last updated '+d.toLocaleString('en-NG',{dateStyle:'medium',timeStyle:'short'})));
+      }
+    }
+    const hint=node('p','admin-muted','Visible only to staff. Does not confirm payment, delivery or change stock.');
+    followup.append(heading,stageLabel,noteLabel,hint,actions);
+    followup.addEventListener('submit',async event=>{
+      event.preventDefault();
+      if(!followup.reportValidity())return;
+      save.disabled=true;
+      const body={stage:stageSelect.value,internal_note:note.value.trim()};
+      try{
+        const updated=await apiRequest('/admin/orders/'+encodeURIComponent(order.id)+'/followup',{
+          method:'PUT',authorize:true,body
+        });
+        loadedOrders=loadedOrders.map(entry=>entry.id===updated.id?updated:entry);
+        renderVisibleOrders();
+        feedback('Private follow-up saved. The customer-facing order status has not changed.','success');
+      }catch(error){
+        feedback('Unable to save follow-up: '+error.message,'error');
+        save.disabled=false;
+      }
+    });
+    card.append(followup);
     return card;
+  }
+  function renderVisibleOrders(){
+    const list=$a('admin-order-list');
+    const search=$a('admin-enquiry-search').value.trim().toLowerCase();
+    const stage=$a('admin-enquiry-stage-filter').value;
+    const filtered=loadedOrders.filter(order=>{
+      if(stage!=='all'&&(order.followup_stage||'new')!==stage)return false;
+      if(!search)return true;
+      return [order.id,order.customer_name,order.customer_email,order.delivery_destination]
+        .some(value=>String(value||'').toLowerCase().includes(search));
+    });
+    list.replaceChildren();
+    for(const order of filtered)list.append(displayOrder(order));
+    if(!filtered.length){
+      list.append(node('p','admin-muted',loadedOrders.length
+        ?'No loaded enquiries match these filters. Adjust the search or load more entries.'
+        :'No customer selections or enquiries recorded yet.'));
+    }
+    $a('admin-enquiry-filter-count').textContent='Showing '+filtered.length+' of '+loadedOrders.length+
+      ' loaded entries. Search and filters apply to the loaded entries only.';
   }
   async function loadOrders(){
     if(loading)return;
@@ -512,9 +582,9 @@ async function uploadProductWithPhoto(details, file){
     try{
       const data=await apiRequest('/admin/orders?limit=20&offset='+offset,{authorize:true});
       if(!Array.isArray(data))throw new Error('Unexpected orders response.');
-      if(offset===0&&data.length===0)$a('admin-order-list').append(node('p','admin-muted','No customer selections or enquiries recorded yet.'));
-      for(const order of data)$a('admin-order-list').append(displayOrder(order));
+      loadedOrders.push(...data);
       offset+=data.length;button.hidden=data.length<20;
+      renderVisibleOrders();
     }catch(error){feedback('Unable to load enquiries: '+error.message,'error');throw error;}
     finally{loading=false;button.disabled=false;}
   }
@@ -613,7 +683,7 @@ async function uploadProductWithPhoto(details, file){
   async function loadDashboard(){
     const allowed=await verified();if(!allowed)return;
     feedback('Loading inventory and enquiries…');
-    offset=0;$a('admin-order-list').replaceChildren();
+    offset=0;loadedOrders=[];$a('admin-order-list').replaceChildren();
     const results=await Promise.allSettled([loadProducts(),loadInventory(),loadOrders(),loadReports(),loadStaff(),loadStaffManagement()]);
     const failures=results.filter(result=>result.status==='rejected');
     if(failures.length){
@@ -632,6 +702,8 @@ async function uploadProductWithPhoto(details, file){
     $a('admin-staff-refresh').addEventListener('click',loadStaffManagement);
     $a('admin-refresh').addEventListener('click',loadDashboard);
     $a('admin-more-orders').addEventListener('click',loadOrders);
+    $a('admin-enquiry-search').addEventListener('input',renderVisibleOrders);
+    $a('admin-enquiry-stage-filter').addEventListener('change',renderVisibleOrders);
     $a('admin-open-add-product').addEventListener('click',()=>toggleProductCreator($a('admin-create-product').hidden));
     $a('admin-cancel-add-product').addEventListener('click',()=>toggleProductCreator(false));
     $a('admin-create-product').addEventListener('submit',createProduct);
@@ -658,6 +730,8 @@ async function uploadProductWithPhoto(details, file){
       reportRows=[];
       $a('admin-report-stats').replaceChildren();
       $a('admin-product-list').replaceChildren();
+      loadedOrders=[];
+      $a('admin-order-list').replaceChildren();
       $a('admin-staff-section').hidden=true;
       $a('admin-staff-nav').hidden=true;
       $a('admin-staff-list').replaceChildren();
