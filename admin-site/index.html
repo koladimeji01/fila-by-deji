@@ -159,7 +159,22 @@
    <div class="admin-table-scroll"><table class="admin-table"><thead><tr><th scope="col">Cap</th><th scope="col">Size</th><th scope="col">Available units</th><th scope="col">Update</th></tr></thead><tbody id="admin-stock-rows"></tbody></table></div>
   </section>
   <section class="admin-section" aria-labelledby="admin-orders-title">
-   <div class="admin-section__heading"><div><h2 id="admin-orders-title">Customer enquiries and selections</h2><p>Only draft enquiries with a destination can receive a delivery quote. Quotes do not confirm a purchase.</p></div></div>
+   <div class="admin-section__heading"><div><h2 id="admin-orders-title">Customer enquiries and selections</h2><p>Track customer follow-ups and private staff notes. These are unpaid selections, not completed orders.</p></div></div>
+   <div class="admin-enquiry-tools">
+     <label for="admin-enquiry-search">Search loaded enquiries
+       <input id="admin-enquiry-search" type="search" placeholder="Customer name, email or reference" autocomplete="off">
+     </label>
+     <label for="admin-enquiry-stage-filter">Follow-up status
+       <select id="admin-enquiry-stage-filter">
+         <option value="all">All statuses</option>
+         <option value="new">New</option>
+         <option value="contacted">Contacted</option>
+         <option value="awaiting_reply">Awaiting reply</option>
+         <option value="closed">Closed follow-up</option>
+       </select>
+     </label>
+   </div>
+   <p id="admin-enquiry-filter-count" class="admin-muted" role="status" aria-live="polite">Search and filters apply to the loaded enquiry entries.</p>
    <div id="admin-order-list" class="admin-order-list"></div>
    <button type="button" id="admin-more-orders" class="button button--dark" hidden>Load more</button>
   </section>
