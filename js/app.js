@@ -59,7 +59,9 @@ async function apiRequest(path,{method='GET',body,authorize=false}={}){
 }
 function catalogImage(product){
   const local='assets/'+product.id+'.jpg';
-  if(['ceremonial','classic','premium'].includes(product.id))return local;
+  // Keep the three original photographs until an admin deliberately replaces one.
+  if(['ceremonial','classic','premium'].includes(product.id) &&
+     (!product.image_url || product.image_url===local))return local;
   if(typeof product.image_url==='string'){
     try{
       const url=new URL(product.image_url);
