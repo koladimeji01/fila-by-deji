@@ -155,6 +155,10 @@ def test_photo_editor_wiring_and_original_default_paths():
     storefront=(root/'js'/'app.js').read_text(encoding='utf-8')
     vercel=(root/'admin-site'/'vercel.json').read_text(encoding='utf-8')
     assert 'productPhotoEditor(product)' in js
+    assert "Preview image URL" in js
+    assert "previewLink.addEventListener('click'" in js
+    assert "preview.dataset.originalSrc" in js
+    assert r'!/\\.(jpg|jpeg|png|webp)$/i.test(target.pathname)' not in js
     assert "mode.value==='device'" in js
     assert "'/photo-url'" in js and "'/photo'" in js
     assert "new FormData()" in js and "data.append('photo',chosen,chosen.name)" in js
