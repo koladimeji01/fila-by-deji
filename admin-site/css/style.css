@@ -466,3 +466,15 @@ img.image-unavailable{opacity:0!important}.product-card__media:has(img.image-una
 .admin-settings-feedback{font-size:12px;color:#604e24;min-height:15px}
 .admin-account-form input:focus-visible{outline:3px solid var(--gold);outline-offset:2px}
 @media(max-width:750px){.admin-account-settings{grid-template-columns:1fr}.admin-account-form .button{align-self:stretch}}
+
+
+/* Stage 12: replace existing catalog photos without deleting product records. */
+.admin-product-photo-editor{display:grid;gap:11px;background:#faf9f5;border:1px solid var(--border);border-radius:12px;padding:15px;margin:4px 0 7px;min-width:0}
+.admin-product-photo-editor h4{margin:0;font-size:14px}
+.admin-product-photo-editor__image{width:100%;max-width:270px;height:190px;object-fit:contain;object-position:center;background:#efede9;border:1px solid var(--border);border-radius:10px}
+.admin-product-photo-editor .admin-form-field select{min-height:42px;width:100%;padding:9px 12px;border:1px solid #bdb7a9;border-radius:8px;background:#fff;font:inherit;font-size:14px;font-weight:400}
+.admin-product-photo-editor .admin-form-field input[type="file"]{height:auto;padding:10px;cursor:pointer}
+.admin-product-photo-editor .admin-muted{margin:0;font-size:12px;overflow-wrap:anywhere}
+.admin-product-photo-editor>.button{justify-self:start;min-height:41px}
+.admin-product-photo-editor [hidden],.admin-photo-source-panel[hidden]{display:none!important}
+@media(max-width:540px){.admin-product-photo-editor__image{max-width:100%}.admin-product-photo-editor>.button{width:100%}}
