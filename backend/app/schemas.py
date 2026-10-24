@@ -215,13 +215,41 @@ class AdminProductCreateRequest(BaseModel):
 
 class StockUpdateRequest(BaseModel):
     model_config = ConfigDict(extra='forbid')
-    available_quantity: int = Field(ge=0, le=100000)
+    available_quantity: int = Field(ge=0, le=100000, strict=True)
+    reason: Literal['restock', 'correction', 'damage', 'other'] = 'correction'
 
 
 class StockLevelResponse(BaseModel):
     product_id: str
     size: str
     available_quantity: int
+
+
+class LowStockAlertResponse(BaseModel):
+    product_id: str
+    product_name: str
+    size: str
+    available_quantity: int
+    status: Literal['out', 'low']
+
+
+class InventoryAlertsResponse(BaseModel):
+    threshold: int
+    out_of_stock: int
+    low_stock: int
+    alerts: list[LowStockAlertResponse]
+
+
+class InventoryChangeResponse(BaseModel):
+    id: str
+    product_id: str
+    product_name: str
+    size: str
+    previous_quantity: int
+    new_quantity: int
+    reason: str
+    changed_by_name: str
+    changed_at: datetime
 
 
 class EnquiryFollowupRequest(BaseModel):
