@@ -27,7 +27,7 @@ def check_readiness() -> list[str]:
                 errors.append(f'Database migration is {actual or "unversioned"}; expected {expected}. Run: python -m alembic upgrade head')
             schema = inspect(conn)
             checks = {
-                'users': {'id', 'email', 'is_admin'},
+                'users': {'id', 'email', 'is_admin', 'auth_version'},
                 'products': {'id', 'price_kobo'},
                 'orders': {'id', 'status', 'reserved_until', 'client_request_id', 'delivery_destination', 'shipping_quote_kobo', 'shipping_quoted_at'},
                 'delivery_quote_audit': {'id', 'order_id', 'admin_user_id', 'new_amount_kobo'},
