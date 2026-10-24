@@ -142,6 +142,31 @@ class ProductInventory(Base):
                       CheckConstraint("size IN ('32', '35', '39', '41')", name='ck_inventory_valid_size'))
 
 
+
+class InventoryChangeAudit(Base):
+    """Append-only log of manual stock edits, not temporary customer holds."""
+    __tablename__ = 'inventory_change_audit'
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=lambda: str(uuid4()))
+    product_id: Mapped[str] = mapped_column(
+        ForeignKey('products.id', ondelete='RESTRICT'), index=True, nullable=False
+    )
+    size: Mapped[str] = mapped_column(String(4), nullable=False)
+    previous_quantity: Mapped[int] = mapped_column(Integer, nullable=False)
+    new_quantity: Mapped[int] = mapped_column(Integer, nullable=False)
+    reason: Mapped[str] = mapped_column(String(16), nullable=False)
+    changed_by: Mapped[str] = mapped_column(
+        ForeignKey('users.id', ondelete='RESTRICT'), nullable=False
+    )
+    changed_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, default=utcnow
+    )
+    __table_args__ = (
+        CheckConstraint("size IN ('32','35','39','41')", name='ck_inventory_audit_size'),
+        CheckConstraint("reason IN ('restock','correction','damage','other')", name='ck_inventory_audit_reason'),
+        CheckConstraint('previous_quantity >= 0 AND new_quantity >= 0', name='ck_inventory_audit_nonnegative'),
+    )
+
+
 class SavedItem(Base):
     """A user's saved cap/size. Never reserves stock or represents an order."""
     __tablename__ = 'saved_items'
