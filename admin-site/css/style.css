@@ -403,3 +403,33 @@ img.image-unavailable{opacity:0!important}.product-card__media:has(img.image-una
 .admin-report-empty-note{position:absolute;top:44%;width:100%;text-align:center;margin:0;font-weight:600;font-size:13px;color:#6b634f}
 .admin-report-tools :focus-visible{outline:3px solid var(--gold);outline-offset:2px}
 @media(max-width:560px){.admin-report-tools label,.admin-report-tools button{width:100%}.admin-report-tools select{width:100%}.admin-report-chart{height:175px;gap:2px}.admin-report-row{flex-wrap:wrap}.admin-report-row strong{white-space:normal}}
+
+
+/* Stage 9: low-stock monitoring and manual stock adjustment audit */
+.admin-inventory-monitor{border-top:1px solid var(--border);margin-top:27px;padding-top:18px}
+.admin-inventory-monitor h3{font-size:18px;margin:0 0 7px}
+.admin-inventory-tools{display:flex;gap:11px;align-items:end;flex-wrap:wrap}
+.admin-inventory-tools label{display:grid;gap:7px;font-size:12px;font-weight:700}
+.admin-inventory-tools select,.admin-stock-reason{min-height:40px;min-width:155px;max-width:100%;padding:8px 10px;border-radius:8px;background:#fff;border:1px solid #bdb7a9;color:#2a2a2a;font:inherit;font-size:12px}
+.admin-inventory-alert-summary{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:13px;margin:16px 0}
+.admin-inventory-summary-card{background:#fff;border:1px solid var(--border);border-radius:11px;padding:18px}
+.admin-inventory-summary-card span{font-size:12px;color:#666;display:block;margin-bottom:10px}
+.admin-inventory-summary-card strong{font-size:clamp(21px,2.8vw,29px);font-weight:800}
+.admin-inventory-alert-list,.admin-inventory-history{display:grid;gap:9px;margin-top:13px}
+.admin-inventory-alert,.admin-inventory-history-row{display:flex;align-items:center;justify-content:space-between;gap:14px;padding:14px 16px;background:#fff;border:1px solid var(--border);border-radius:10px}
+.admin-inventory-alert>div,.admin-inventory-history-row>div{display:grid;gap:6px;min-width:0}
+.admin-inventory-alert strong,.admin-inventory-history-row strong{font-size:13px;overflow-wrap:anywhere}
+.admin-inventory-alert span.admin-muted,.admin-inventory-history-row span.admin-muted{font-size:12px}
+.admin-inventory-alert__out{background:#fce7e6;color:#912c20}
+.admin-inventory-alert__low{background:#fff1c9;color:#73521b}
+.admin-inventory-history-heading{margin-top:29px!important}
+.admin-inventory-history-detail{text-align:right}
+.admin-inventory-history-detail small{font-size:11px}
+.admin-inventory-monitor :focus-visible,.admin-stock-reason:focus-visible{outline:3px solid var(--gold);outline-offset:2px}
+@media(max-width:640px){
+  .admin-inventory-alert-summary{grid-template-columns:1fr 1fr}
+  .admin-inventory-alert-summary> :last-child{grid-column:1/-1}
+  .admin-inventory-history-row,.admin-inventory-alert{align-items:flex-start}
+  .admin-inventory-tools,.admin-inventory-tools label{width:100%}
+  .admin-inventory-tools button,.admin-inventory-tools select{width:100%}
+}
