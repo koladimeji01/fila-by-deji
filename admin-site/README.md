@@ -25,6 +25,8 @@ Both admin URLs are now verified and assigned to the standalone administration p
 - Edit **existing** catalog names, categories, descriptions, prices and visibility
 - View and set exact available stock by size
 - Review unpaid customer enquiries and temporary holds
+- Track enquiries through **New**, **Contacted**, **Awaiting Reply**, and **Closed Follow-up** stages with an internal note, last-updated timestamp, and search/filter tools. Filters apply only to currently loaded enquiries.
+- The follow-up metadata lives in a private `enquiry_followups` table. Customer orders, paid state, inventory, and shipping quotes are never changed by these notes. No customer-facing messaging is sent.
 - Save delivery quotes on eligible draft enquiries
 - Report on the latest 100 entries (not full historical totals), plus CSV export
 - View the verified staff identity and end the browser session
